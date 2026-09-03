@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Linked Open Ogham</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <nav class="nav">
+    <a href="index.html" class="active">Collection</a>
+    <a href="sparql.html">Query</a>
+  </nav>
+
+  <header class="page-head">
+    <h1>Linked Open Ogham</h1>
+<p class="intro">Linked Open Data representation of Irish Ogham stones, their inscriptions, readings and find spots, linked to Wikidata, OpenStreetMap and Pleiades.</p>  </header>
+
+  <dl class="meta-list">
+    <dt>Collection URI</dt>
+    <dd><a href="https://graph.nfdi4objects.net/collection/9">https://graph.nfdi4objects.net/collection/9</a></dd>
+    <dt>Publication</dt>
+    <dd><a href="https://doi.org/10.5281/zenodo.4765603">https://doi.org/10.5281/zenodo.4765603</a></dd>
+    <dt>Wikidata</dt>
+    <dd><a href="http://www.wikidata.org/entity/Q123456789">http://www.wikidata.org/entity/Q123456789</a></dd>
+    <dt>Licence</dt>
+    <dd><a href="http://creativecommons.org/licenses/by/4.0/">http://creativecommons.org/licenses/by/4.0/</a></dd>
+    <dt>Creators</dt>
+    <dd>Thiery, Florian</dd>
+    <dt>Version</dt>
+    <dd>1.0.0, published 2021-05-19</dd>
+    <dt>Graph</dt>
+    <dd>25 triples &middot; 6 classes
+        (4 aligned to CIDOC CRM) &middot; 4 properties</dd>
+  </dl>
+
+  <section class="query">
+    <h2>Files</h2>
+    <ul>
+      <li><a href="https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl">RDF bundle (data and ontology)</a></li>
+      <li><a href="metadata.ttl">Metadata (Turtle)</a> &middot;
+          <a href="metadata.jsonld">JSON-LD</a></li>
+      <li><a href="n4o-collection.ttl">N4O KG registration record</a></li>
+      <li><a href="crm-alignment.ttl">CIDOC CRM alignment</a></li>
+    </ul>
+    <p class="note">
+      All of the above is generated from a single <code>metadata.yaml</code> by
+      <a href="https://github.com/Research-Squirrel-Engineers/n4o-kg-profile">n4o-kg-profile</a>.
+      Class and property counts are measured from the bundle, not typed in.
+    </p>
+  </section>
+
+  <footer class="page-foot">
+    <p>
+      <a href="sparql.html">Query this collection</a> in your browser.
+      Source repository: <a href="https://ogham.link/">https://ogham.link/</a>.
+    </p>
+  </footer>
+</div>
+</body>
+</html>

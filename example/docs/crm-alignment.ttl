@@ -1,0 +1,13 @@
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+<http://ontology.ogham.link/Inscription> rdfs:subClassOf crm:E34_Inscription .
+
+<http://ontology.ogham.link/OghamStone> rdfs:subClassOf crm:E22_Human-Made_Object .
+
+<http://ontology.ogham.link/Reading> rdfs:subClassOf crm:E33_Linguistic_Object .
+
+<http://ontology.ogham.link/Townland> rdfs:subClassOf crm:E53_Place .
+
+<http://ontology.ogham.link/within> rdfs:subPropertyOf crm:P89_falls_within .
+

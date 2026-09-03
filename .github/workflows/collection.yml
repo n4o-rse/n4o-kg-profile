@@ -1,0 +1,78 @@
+# =============================================================================
+# Reusable workflow: build plus GitHub Pages in one call.
+# A collection repository then needs only the eight lines in example/build.yml.
+# =============================================================================
+
+name: Collection
+
+on:
+  workflow_call:
+    inputs:
+      metadata:
+        type: string
+        default: metadata.yaml
+      strict:
+        type: boolean
+        default: true
+      deploy-pages:
+        type: boolean
+        default: true
+      commit-outputs:
+        description: >-
+          Write dist/ and docs/ back into the branch. Worth having, so the
+          version that was loaded stays citable in the repository; turn it off
+          if only the Pages site matters.
+        type: boolean
+        default: true
+      ref:
+        description: Release of n4o-kg-profile to build with.
+        type: string
+        default: v1
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: n4o-collection-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: n4o
+        uses: Research-Squirrel-Engineers/n4o-kg-profile@v1
+        with:
+          metadata: ${{ inputs.metadata }}
+          strict: ${{ inputs.strict }}
+
+      - name: Commit the outputs
+        if: inputs.commit-outputs && github.event_name != 'pull_request'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A dist docs profile build queries.yaml rdf 2>/dev/null || true
+          # No empty commits: the outputs are byte-stable, so "nothing changed"
+          # is the normal case and should not produce history.
+          git diff --staged --quiet || git commit -m "build: regenerate metadata and query page"
+          git push
+
+      - uses: actions/upload-pages-artifact@v3
+        if: inputs.deploy-pages
+        with:
+          path: docs
+
+  pages:
+    if: inputs.deploy-pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

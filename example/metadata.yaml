@@ -1,0 +1,142 @@
+%YAML 1.2
+---
+# =============================================================================
+# Worked example: Linked Open Ogham as collection 9 of the N4O KG.
+# Copy this file into a new collection repository and edit it; it is the only
+# metadata file you maintain by hand.
+# =============================================================================
+
+"@context": https://w3id.org/nfdi4objects/profile/v0.1/context.jsonld
+
+# --- 1. What the N4O KG needs to register the collection ---------------------
+
+id: https://graph.nfdi4objects.net/collection/9   # assigned by NFDI4Objects
+type: [Database, Dataset]
+
+title:
+  en: Linked Open Ogham
+  de: Linked Open Ogham
+
+homepage: https://doi.org/10.5281/zenodo.4765603    # publication URL
+sameAs: http://www.wikidata.org/entity/Q123456789   # TODO: real Wikidata item
+license: http://creativecommons.org/licenses/by/4.0/
+
+notation: '9'
+isPartOf: https://graph.nfdi4objects.net/collection/
+
+# --- 2. NCMDP core -----------------------------------------------------------
+
+description:
+  en: >-
+    Linked Open Data representation of Irish Ogham stones, their inscriptions,
+    readings and find spots, linked to Wikidata, OpenStreetMap and Pleiades.
+  de: >-
+    Linked-Open-Data-Repraesentation irischer Ogham-Steine, ihrer Inschriften,
+    Lesungen und Fundorte, verknuepft mit Wikidata, OpenStreetMap und Pleiades.
+
+creators:
+  - type: [Person]
+    name: Thiery, Florian
+    givenName: Florian
+    familyName: Thiery
+    orcid: https://orcid.org/0000-0002-3246-3531
+    affiliation:
+      type: [Organization]
+      name: Research Squirrel Engineers Network
+
+publisher:
+  type: [Organization]
+  name: Research Squirrel Engineers Network
+
+issued: '2021-05-19'
+modified: '2026-08-19'
+version: '1.0.0'
+
+resourceType: http://purl.org/dc/dcmitype/Dataset
+accessRights: http://publications.europa.eu/resource/authority/access-right/PUBLIC
+landingPage: https://ogham.link/
+
+keywords: [Ogham, Ireland, Epigraphy, Linked Open Data, CIDOC CRM]
+language: [http://id.loc.gov/vocabulary/iso639-1/en]
+
+conformsTo:
+  - https://w3id.org/nfdi4objects/profile/v0.1
+
+# --- 3. What gets loaded into the graph --------------------------------------
+# `file` is repository-relative and checked for existence at build time.
+# `source` is fetched once if `file` is absent, so the bundle can be built in
+# another repository and archived here.
+# `downloadURL` is what the importer actually retrieves.
+
+distributions:
+  - role: bundle
+    title:
+      en: RDF bundle (data and ontology)
+      de: RDF-Bundle (Daten und Ontologie)
+    file: rdf/example-bundle.ttl
+    accessURL: https://github.com/Research-Squirrel-Engineers/n4o-kg-profile/
+    downloadURL: https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl
+    mediaType: https://www.iana.org/assignments/media-types/text/turtle
+
+# --- 4. Model: alignment to CIDOC CRM ----------------------------------------
+# Only the alignment is maintained here. The build counts classes and
+# properties from `bundle` and writes them as void:classPartition /
+# void:propertyPartition. Classes found in the bundle with no entry are
+# reported, never guessed.
+
+model:
+  bundle: rdf/example-bundle.ttl
+
+  classes:
+    - class: http://ontology.ogham.link/OghamStone
+      crm: http://www.cidoc-crm.org/cidoc-crm/E22_Human-Made_Object
+    - class: http://ontology.ogham.link/Inscription
+      crm: http://www.cidoc-crm.org/cidoc-crm/E34_Inscription
+    - class: http://ontology.ogham.link/Reading
+      crm: http://www.cidoc-crm.org/cidoc-crm/E33_Linguistic_Object
+    - class: http://ontology.ogham.link/Townland
+      crm: http://www.cidoc-crm.org/cidoc-crm/E53_Place
+
+  properties:
+    - property: http://ontology.ogham.link/within
+      crm: http://www.cidoc-crm.org/cidoc-crm/P89_falls_within
+
+# --- 5. Example queries ------------------------------------------------------
+# Written out as queries.yaml, which build_sparql.py turns into the query page
+# and which the N4O KG can harvest. Prefixes are maintained once, here, and
+# injected into every query that ships.
+
+prefixes: |
+  PREFIX ogham: <http://ontology.ogham.link/>
+  PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+  PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+queries:
+  - id: classes-with-counts
+    title:
+      en: Classes used, with counts
+      de: Verwendete Klassen mit Anzahl
+    intro:
+      en: What occurs in this collection — the counterpart to the VoID statistics.
+      de: Was in dieser Sammlung vorkommt — die Gegenprobe zur VoID-Statistik.
+    sparql: |
+      SELECT ?class (COUNT(?s) AS ?count) WHERE {
+        ?s a ?class
+      } GROUP BY ?class ORDER BY DESC(?count)
+
+  - id: stones-via-crm
+    title:
+      en: Ogham stones via their CRM superclass
+      de: Ogham-Steine ueber die CRM-Oberklasse
+    intro:
+      en: >-
+        Checks that the CIDOC CRM alignment works: the query asks for E22 and is
+        answered from ogham:OghamStone.
+      de: >-
+        Prueft, ob die Ausrichtung auf CIDOC CRM greift: gefragt wird nach E22,
+        geantwortet wird aus ogham:OghamStone.
+    sparql: |
+      SELECT ?stone ?label WHERE {
+        ?stone a/rdfs:subClassOf* crm:E22_Human-Made_Object ;
+               rdfs:label ?label
+      } ORDER BY ?label

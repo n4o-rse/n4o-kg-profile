@@ -1,0 +1,8 @@
+PREFIX ogham: <http://ontology.ogham.link/>
+PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?stone ?label WHERE {
+  ?stone a/rdfs:subClassOf* crm:E22_Human-Made_Object ;
+         rdfs:label ?label
+} ORDER BY ?label

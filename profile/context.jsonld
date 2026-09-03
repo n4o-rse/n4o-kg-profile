@@ -1,0 +1,160 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "dcat": "http://www.w3.org/ns/dcat#",
+    "dct": "http://purl.org/dc/terms/",
+    "fabio": "http://purl.org/spar/fabio/",
+    "foaf": "http://xmlns.com/foaf/0.1/",
+    "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+    "schema": "https://schema.org/",
+    "sh": "http://www.w3.org/ns/shacl#",
+    "skos": "http://www.w3.org/2004/02/skos/core#",
+    "void": "http://rdfs.org/ns/void#",
+    "xsd": "http://www.w3.org/2001/XMLSchema#",
+    "n4op": "https://w3id.org/nfdi4objects/profile/v0.1/",
+    "id": "@id",
+    "type": "@type",
+    "Dataset": "dcat:Dataset",
+    "Database": "fabio:Database",
+    "Distribution": "dcat:Distribution",
+    "Organization": "foaf:Organization",
+    "Person": "foaf:Person",
+    "Grant": "schema:Grant",
+    "Query": "sh:SPARQLSelectExecutable",
+    "title": {
+      "@id": "dct:title",
+      "@container": "@language"
+    },
+    "homepage": {
+      "@id": "foaf:homepage",
+      "@type": "@id"
+    },
+    "sameAs": {
+      "@id": "schema:sameAs",
+      "@type": "@id"
+    },
+    "license": {
+      "@id": "dct:license",
+      "@type": "@id"
+    },
+    "notation": {
+      "@id": "skos:notation"
+    },
+    "isPartOf": {
+      "@id": "dct:isPartOf",
+      "@type": "@id"
+    },
+    "description": {
+      "@id": "dct:description",
+      "@container": "@language"
+    },
+    "creators": {
+      "@id": "dct:creator",
+      "@container": "@set"
+    },
+    "publisher": {
+      "@id": "dct:publisher"
+    },
+    "issued": {
+      "@id": "dct:issued",
+      "@type": "xsd:date"
+    },
+    "modified": {
+      "@id": "dct:modified",
+      "@type": "xsd:date"
+    },
+    "version": {
+      "@id": "dcat:version"
+    },
+    "resourceType": {
+      "@id": "dct:type",
+      "@type": "@id"
+    },
+    "accessRights": {
+      "@id": "dct:accessRights",
+      "@type": "@id"
+    },
+    "landingPage": {
+      "@id": "dcat:landingPage",
+      "@type": "@id"
+    },
+    "keywords": {
+      "@id": "dcat:keyword",
+      "@container": "@set"
+    },
+    "language": {
+      "@id": "dct:language",
+      "@type": "@id",
+      "@container": "@set"
+    },
+    "conformsTo": {
+      "@id": "dct:conformsTo",
+      "@type": "@id",
+      "@container": "@set"
+    },
+    "name": {
+      "@id": "foaf:name"
+    },
+    "givenName": {
+      "@id": "foaf:givenName"
+    },
+    "familyName": {
+      "@id": "foaf:familyName"
+    },
+    "orcid": {
+      "@id": "https://nfdi4objects.net/ontology#orcidId",
+      "@type": "@id"
+    },
+    "affiliation": {
+      "@id": "schema:affiliation"
+    },
+    "funding": {
+      "@id": "schema:funding",
+      "@container": "@set"
+    },
+    "funder": {
+      "@id": "schema:funder"
+    },
+    "awardNumber": {
+      "@id": "schema:identifier"
+    },
+    "distributions": {
+      "@id": "dcat:distribution",
+      "@container": "@set"
+    },
+    "downloadURL": {
+      "@id": "dcat:downloadURL",
+      "@type": "@id"
+    },
+    "accessURL": {
+      "@id": "dcat:accessURL",
+      "@type": "@id"
+    },
+    "mediaType": {
+      "@id": "dcat:mediaType",
+      "@type": "@id"
+    },
+    "role": {
+      "@id": "dct:type",
+      "@type": "@vocab"
+    },
+    "bundle": "n4op:roleBundle",
+    "data": "n4op:roleData",
+    "ontology": "n4op:roleOntology",
+    "queries": {
+      "@id": "n4op:exampleQuery",
+      "@container": "@set"
+    },
+    "sparql": {
+      "@id": "sh:select"
+    },
+    "intro": {
+      "@id": "rdfs:comment",
+      "@container": "@language"
+    },
+    "prefixes": null,
+    "file": null,
+    "model": null,
+    "page": null
+  }
+}

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ c.title }}</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+  <nav class="nav">
+    <a href="index.html" class="active">Collection</a>
+    <a href="sparql.html">Query</a>
+  </nav>
+
+  <header class="page-head">
+    <h1>{{ c.title }}</h1>
+    {% if c.description %}<p class="intro">{{ c.description }}</p>{% endif %}
+  </header>
+
+  <dl class="meta-list">
+    <dt>Collection URI</dt>
+    <dd><a href="{{ c.id }}">{{ c.id }}</a></dd>
+    {% if c.homepage %}
+    <dt>Publication</dt>
+    <dd><a href="{{ c.homepage }}">{{ c.homepage }}</a></dd>
+    {% endif %}
+    {% if c.wikidata %}
+    <dt>Wikidata</dt>
+    <dd><a href="{{ c.wikidata }}">{{ c.wikidata }}</a></dd>
+    {% endif %}
+    {% if c.licence %}
+    <dt>Licence</dt>
+    <dd><a href="{{ c.licence }}">{{ c.licence }}</a></dd>
+    {% endif %}
+    {% if c.creators %}
+    <dt>Creators</dt>
+    <dd>{{ c.creators|join('; ') }}</dd>
+    {% endif %}
+    {% if c.version %}
+    <dt>Version</dt>
+    <dd>{{ c.version }}{% if c.issued %}, published {{ c.issued }}{% endif %}</dd>
+    {% endif %}
+    {% if c.triples %}
+    <dt>Graph</dt>
+    <dd>{{ '{:,}'.format(c.triples) }} triples &middot; {{ c.classes }} classes
+        ({{ c.aligned }} aligned to CIDOC CRM) &middot; {{ c.properties }} properties</dd>
+    {% endif %}
+  </dl>
+
+  <section class="query">
+    <h2>Files</h2>
+    <ul>
+      {% for d in c.distributions %}
+      <li><a href="{{ d.url }}">{{ d.title or d.url }}</a></li>
+      {% endfor %}
+      <li><a href="metadata.ttl">Metadata (Turtle)</a> &middot;
+          <a href="metadata.jsonld">JSON-LD</a></li>
+      <li><a href="n4o-collection.ttl">N4O KG registration record</a></li>
+      <li><a href="crm-alignment.ttl">CIDOC CRM alignment</a></li>
+    </ul>
+    <p class="note">
+      All of the above is generated from a single <code>metadata.yaml</code> by
+      <a href="https://github.com/Research-Squirrel-Engineers/n4o-kg-profile">n4o-kg-profile</a>.
+      Class and property counts are measured from the bundle, not typed in.
+    </p>
+  </section>
+
+  <footer class="page-foot">
+    <p>
+      <a href="sparql.html">Query this collection</a> in your browser.
+      {% if c.landing_page %}
+      Source repository: <a href="{{ c.landing_page }}">{{ c.landing_page }}</a>.
+      {% endif %}
+    </p>
+  </footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,141 @@
+# =============================================================================
+# n4o-kg-profile — composite action
+# -----------------------------------------------------------------------------
+# A collection repository holds only its metadata.yaml (and optionally the
+# bundle). This action brings the profile, the context, the shapes and both
+# generators with it, and produces dist/ and docs/.
+#
+#   - uses: Research-Squirrel-Engineers/n4o-kg-profile@v1
+#     with:
+#       metadata: metadata.yaml
+#       strict: true
+# =============================================================================
+
+name: N4O KG metadata and query page
+description: >-
+  Builds the metadata RDF, the N4O collection record and the browser-side SPARQL
+  page from a single metadata.yaml (YAML-LD).
+author: Research Squirrel Engineers Network
+
+branding:
+  icon: database
+  color: blue
+
+inputs:
+  metadata:
+    description: Path to metadata.yaml inside the calling repository.
+    required: false
+    default: metadata.yaml
+  strict:
+    description: >-
+      Fail on a SHACL violation or on an example query returning no rows.
+    required: false
+    default: 'true'
+  refresh:
+    description: Refetch the bundle from `source:` even if a copy is present.
+    required: false
+    default: 'false'
+  build-pages:
+    description: Also generate docs/index.html and docs/sparql.html.
+    required: false
+    default: 'true'
+  check-reproducible:
+    description: Run the build twice; any difference fails the job.
+    required: false
+    default: 'true'
+  python-version:
+    required: false
+    default: '3.12'
+
+outputs:
+  triples:
+    description: Number of triples in the generated metadata graph.
+    value: ${{ steps.build.outputs.triples }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check out the profile
+      uses: actions/checkout@v4
+      with:
+        repository: Research-Squirrel-Engineers/n4o-kg-profile
+        # The same release that was referenced in `uses:`, so a collection
+        # pinned to @v1 keeps getting v1 for as long as it says so.
+        ref: ${{ github.action_ref }}
+        path: .n4o-profile
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install --quiet -r .n4o-profile/requirements.txt
+
+    - name: Place the profile
+      shell: bash
+      run: |
+        # profile/ and build/ are shared and versioned: always from the action,
+        # never from the collection repository. A collection therefore cannot
+        # quietly carry a divergent context or divergent shapes — the failure
+        # mode that makes a family of repositories drift apart over years.
+        rm -rf profile build
+        cp -r .n4o-profile/profile profile
+        cp -r .n4o-profile/build build
+
+    - name: Build the metadata
+      id: build
+      shell: bash
+      env:
+        N4O_METADATA: ${{ inputs.metadata }}
+        N4O_STRICT: ${{ inputs.strict == 'true' && '1' || '0' }}
+        N4O_REFRESH: ${{ inputs.refresh == 'true' && '1' || '0' }}
+      run: |
+        set -o pipefail
+        python build/make_metadata.py | tee n4o-build.log
+        echo "triples=$(grep -oP 'RDF: \K[0-9]+' n4o-build.log | head -1)" >> "$GITHUB_OUTPUT"
+
+    - name: Build the pages
+      if: inputs.build-pages == 'true'
+      shell: bash
+      run: |
+        # build_sparql.py reads the queries.yaml that make_metadata.py has just
+        # written, so it runs after it, never before.
+        python build/build_sparql.py
+
+    - name: Check reproducibility
+      if: inputs.check-reproducible == 'true'
+      shell: bash
+      run: |
+        # The Turtle outputs are canonicalised and therefore byte-stable. A
+        # difference after an unchanged second run is a defect in the generator,
+        # not noise — and would otherwise make every diff worthless.
+        for f in dist/*.ttl; do cp "$f" "$f.run1"; done
+        N4O_STRICT=0 python build/make_metadata.py > /dev/null
+        for f in dist/*.ttl; do
+          diff -q "$f.run1" "$f" \
+            || { echo "::error file=$f::not reproducible across runs"; exit 1; }
+        done
+        rm -f dist/*.ttl.run1
+
+    - name: Summary
+      shell: bash
+      run: |
+        {
+          echo "### NFDI4Objects Knowledge Graph"
+          echo
+          echo "| | |"
+          echo "|---|---|"
+          echo "| Metadata graph | ${{ steps.build.outputs.triples }} triples |"
+          echo "| Registration record | \`dist/n4o-collection.ttl\` |"
+          echo "| Query page | \`docs/sparql.html\` |"
+          echo
+          echo '```'
+          sed -n '1,40p' n4o-build.log
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Clean up
+      if: always()
+      shell: bash
+      run: rm -rf .n4o-profile n4o-build.log

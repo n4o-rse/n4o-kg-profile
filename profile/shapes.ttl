@@ -1,0 +1,138 @@
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+@prefix dcat:  <http://www.w3.org/ns/dcat#> .
+@prefix dct:   <http://purl.org/dc/terms/> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix schema:<https://schema.org/> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix void:  <http://rdfs.org/ns/void#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+@prefix n4op:  <https://w3id.org/nfdi4objects/profile/v0.1/> .
+
+# =============================================================================
+# sh:Violation  the N4O KG will not take the collection without it, or the
+#               element is NCMDP mandatory. With `strict`, the build stops.
+# sh:Warning    NCMDP recommended. Reported, never blocking.
+# =============================================================================
+
+n4op:DatasetShape
+    a sh:NodeShape ;
+    sh:targetClass dcat:Dataset ;
+
+    # --- the four facts the N4O KG needs ------------------------------------
+
+    sh:property [
+        sh:path dct:title ; sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "N4O KG: the title is missing." ] ;
+
+    sh:property [
+        sh:path foaf:homepage ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "N4O KG: the publication URL (foaf:homepage, e.g. a Zenodo DOI) is missing." ] ;
+
+    sh:property [
+        sh:path schema:sameAs ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+        sh:pattern "^https?://www\\.wikidata\\.org/entity/Q[0-9]+$" ;
+        sh:severity sh:Violation ;
+        sh:message "N4O KG: schema:sameAs must carry a Wikidata Q-item." ] ;
+
+    sh:property [
+        sh:path dct:license ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "N4O KG: the licence (dct:license) is missing or is not an IRI." ] ;
+
+    # --- NCMDP mandatory ----------------------------------------------------
+
+    sh:property [
+        sh:path dct:creator ; sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "NCMDP mandatory: at least one creator." ] ;
+
+    sh:property [
+        sh:path dct:publisher ; sh:minCount 1 ; sh:maxCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "NCMDP mandatory: exactly one dct:publisher." ] ;
+
+    sh:property [
+        sh:path dct:issued ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ;
+        sh:severity sh:Violation ;
+        sh:message "NCMDP mandatory: dct:issued as an xsd:date." ] ;
+
+    sh:property [
+        sh:path dct:type ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "NCMDP mandatory: resource type (dct:type) as an IRI." ] ;
+
+    # --- NCMDP recommended --------------------------------------------------
+
+    sh:property [
+        sh:path dct:description ; sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "NCMDP recommended: a description." ] ;
+
+    sh:property [
+        sh:path dcat:keyword ; sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "NCMDP recommended: at least one keyword." ] ;
+
+    sh:property [
+        sh:path dcat:version ; sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "NCMDP recommended: a version." ] ;
+
+    sh:property [
+        sh:path dct:accessRights ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+        sh:severity sh:Warning ;
+        sh:message "NCMDP recommended: dct:accessRights from the EU authority vocabulary." ] ;
+
+    # --- import and reusability ---------------------------------------------
+
+    sh:property [
+        sh:path dcat:distribution ; sh:minCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "Without a distribution there is nothing to load into the graph." ] ;
+
+    sh:property [
+        sh:path void:classPartition ; sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "No class statistics — did the build run without a bundle?" ] ;
+
+    sh:property [
+        sh:path n4op:exampleQuery ; sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "Recommended: at least one example query." ] .
+
+
+n4op:DistributionShape
+    a sh:NodeShape ;
+    sh:targetClass dcat:Distribution ;
+
+    sh:property [
+        sh:path dcat:downloadURL ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "The importer needs a dcat:downloadURL." ] ;
+
+    sh:property [
+        sh:path dct:type ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+        sh:severity sh:Violation ;
+        sh:message "State the distribution's role: bundle, data or ontology." ] ;
+
+    sh:property [
+        sh:path dcat:mediaType ; sh:minCount 1 ; sh:nodeKind sh:IRI ;
+        sh:severity sh:Warning ;
+        sh:message "Recommended: dcat:mediaType as an IANA IRI." ] .
+
+
+n4op:AgentShape
+    a sh:NodeShape ;
+    sh:targetObjectsOf dct:creator ;
+
+    sh:property [
+        sh:path foaf:name ; sh:minCount 1 ; sh:maxCount 1 ;
+        sh:severity sh:Violation ;
+        sh:message "Every creator needs exactly one foaf:name." ] ;
+
+    sh:property [
+        sh:path <https://nfdi4objects.net/ontology#orcidId> ; sh:minCount 1 ;
+        sh:severity sh:Warning ;
+        sh:message "Recommended: an ORCID." ] .

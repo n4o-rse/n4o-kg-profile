@@ -1,0 +1,16 @@
+# Copy this to .github/workflows/build.yml in your collection repository.
+# It is not stored under .github/ here, so that it does not run in this
+# repository — the self-test builds the example instead.
+
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  collection:
+    uses: Research-Squirrel-Engineers/n4o-kg-profile/.github/workflows/collection.yml@v1
+    with:
+      strict: true

@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: If you use this tooling, please cite it as below.
+type: software
+title: "n4o-kg-profile: a YAML-LD metadata profile and build for NFDI4Objects Knowledge Graph collections"
+abstract: >-
+  Tooling that derives DCAT/VoID metadata, an NFDI4Objects registration record,
+  a CIDOC CRM alignment and a browser-side SPARQL page from a single YAML-LD
+  file, enforced by SHACL and shipped as a GitHub Action.
+authors:
+  - given-names: Florian
+    family-names: Thiery
+    orcid: https://orcid.org/0000-0002-3246-3531
+    affiliation: LEIZA / Research Squirrel Engineers Network
+version: 0.1.0
+license: MIT
+repository-code: https://github.com/Research-Squirrel-Engineers/n4o-kg-profile
+keywords:
+  - Linked Open Data
+  - NFDI4Objects
+  - CIDOC CRM
+  - DCAT
+  - SHACL
+  - YAML-LD

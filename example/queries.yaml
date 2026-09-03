@@ -1,0 +1,48 @@
+graph:
+  file: rdf/example-bundle.ttl
+  url: example-bundle.ttl
+  publish: true
+  engine: null
+  endpoint: https://graph.nfdi4objects.net/api/sparql
+  from: https://graph.nfdi4objects.net/collection/9
+page:
+  title: Linked Open Ogham
+  intro: Linked Open Data representation of Irish Ogham stones, their inscriptions, readings and find
+    spots, linked to Wikidata, OpenStreetMap and Pleiades.
+collection:
+  id: https://graph.nfdi4objects.net/collection/9
+  title: Linked Open Ogham
+  description: Linked Open Data representation of Irish Ogham stones, their inscriptions, readings and
+    find spots, linked to Wikidata, OpenStreetMap and Pleiades.
+  homepage: https://doi.org/10.5281/zenodo.4765603
+  wikidata: http://www.wikidata.org/entity/Q123456789
+  licence: http://creativecommons.org/licenses/by/4.0/
+  version: 1.0.0
+  issued: '2021-05-19'
+  landing_page: https://ogham.link/
+  creators:
+  - Thiery, Florian
+  distributions:
+  - title: RDF bundle (data and ontology)
+    url: https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl
+  triples: 25
+  classes: 6
+  properties: 4
+  aligned: 4
+prefixes: 'PREFIX ogham: <http://ontology.ogham.link/>
+
+  PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+
+  PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+  '
+queries:
+- id: classes-with-counts
+  title: Classes used, with counts
+  intro: What occurs in this collection — the counterpart to the VoID statistics.
+  sparql: "SELECT ?class (COUNT(?s) AS ?count) WHERE {\n  ?s a ?class\n} GROUP BY ?class ORDER BY DESC(?count)\n"
+- id: stones-via-crm
+  title: Ogham stones via their CRM superclass
+  intro: 'Checks that the CIDOC CRM alignment works: the query asks for E22 and is answered from ogham:OghamStone.'
+  sparql: "SELECT ?stone ?label WHERE {\n  ?stone a/rdfs:subClassOf* crm:E22_Human-Made_Object ;\n   \
+    \      rdfs:label ?label\n} ORDER BY ?label\n"

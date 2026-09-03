@@ -1,0 +1,41 @@
+@prefix n4op:  <https://w3id.org/nfdi4objects/profile/v0.1/> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcat:  <http://www.w3.org/ns/dcat#> .
+@prefix sh:    <http://www.w3.org/ns/shacl#> .
+
+# =============================================================================
+# Everything this profile mints itself — deliberately four terms.
+# Everything else comes from DCAT, DCMI, VoID, SKOS, FaBiO, SHACL and RDFS.
+# =============================================================================
+
+n4op: a owl:Ontology ;
+    rdfs:label "NFDI4Objects Knowledge Graph metadata profile"@en ;
+    rdfs:comment "Application profile for describing a collection published into the N4O Knowledge Graph."@en ;
+    owl:versionInfo "0.1" .
+
+### One property #############################################################
+
+n4op:exampleQuery a owl:ObjectProperty ;
+    rdfs:label "example query"@en ;
+    rdfs:comment "A query that runs meaningfully over this dataset, shipped with it so that the dataset can be explored without first reading its ontology."@en ;
+    rdfs:domain dcat:Dataset ;
+    rdfs:range sh:SPARQLSelectExecutable .
+
+### Three roles for distributions ############################################
+
+n4op:roleScheme a skos:ConceptScheme ;
+    rdfs:label "Role of a distribution in the import"@en .
+
+n4op:roleBundle a skos:Concept ;
+    skos:inScheme n4op:roleScheme ;
+    skos:prefLabel "Bundle (data and ontology in one file)"@en .
+
+n4op:roleData a skos:Concept ;
+    skos:inScheme n4op:roleScheme ;
+    skos:prefLabel "Data"@en .
+
+n4op:roleOntology a skos:Concept ;
+    skos:inScheme n4op:roleScheme ;
+    skos:prefLabel "Ontology"@en .

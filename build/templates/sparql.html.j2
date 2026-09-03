@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ page.title|default('Query this collection') }} &mdash; SPARQL</title>
+<link rel="stylesheet" href="style.css">
+{% if engine == 'pyodide' %}
+<script src="https://cdn.jsdelivr.net/pyodide/v{{ pyodide_version }}/full/pyodide.js"></script>
+{% endif %}
+</head>
+<body>
+<div class="container">
+  <nav class="nav">
+    <a href="index.html">Collection</a>
+    <a href="sparql.html" class="active">Query</a>
+  </nav>
+
+  <header class="page-head">
+    <h1>{{ page.title|default('Query this collection') }}</h1>
+    {% if page.intro %}<p class="intro">{{ page.intro }}</p>{% endif %}
+    <p class="note">
+    {% if engine == 'pyodide' %}
+      There is no SPARQL endpoint and no server. The graph is fetched as a
+      static file and parsed in your browser with <code>rdflib</code> under
+      Pyodide. That is deliberate: an archived copy of this repository stays
+      queryable without a service having to be kept alive for it.
+    {% else %}
+      These queries run against the NFDI4Objects Knowledge Graph endpoint,
+      scoped to this collection. The same queries are also in
+      <code>docs/downloads/queries/</code> as plain <code>.rq</code> files.
+    {% endif %}
+    </p>
+  </header>
+
+  <div class="status" id="status">
+    <span class="dot" id="dot"></span>
+    <span id="status-text">{% if engine == 'pyodide' %}Loading the Python runtime (~10 MB on first visit)&hellip;{% else %}Ready &mdash; edit a query and press Run.{% endif %}</span>
+  </div>
+
+  <p class="note" id="graph-note" hidden></p>
+
+{% for q in queries %}
+  <section class="query" id="q-{{ q.id }}">
+    <h2>{{ loop.index }}. {{ q.title }}</h2>
+    {% if q.intro %}<p class="intro">{{ q.intro }}</p>{% endif %}
+    <textarea class="sparql" id="src-{{ q.id }}" spellcheck="false"
+              rows="{{ [q.sparql.splitlines()|length + 2, 8]|max }}">{{ q.sparql.rstrip() }}</textarea>
+    <div class="query-bar">
+      <button class="run" data-q="{{ q.id }}"{% if engine == 'pyodide' %} disabled{% endif %}>Run</button>
+      <button class="reset" data-q="{{ q.id }}">Reset</button>
+      <a class="rq" href="downloads/queries/{{ q.id }}.rq" download>.rq</a>
+      <span class="timing" id="time-{{ q.id }}"></span>
+    </div>
+    <div class="result" id="out-{{ q.id }}"></div>
+  </section>
+{% endfor %}
+
+  <footer class="page-foot">
+    <p>
+      Generated from <code>queries.yaml</code> by <code>build/build_sparql.py</code>,
+      so this page and the <code>.rq</code> files cannot drift apart.
+      The same queries are in <code>dist/metadata.ttl</code> as
+      <code>sh:SPARQLSelectExecutable</code>.
+    </p>
+  </footer>
+</div>
+
+<script>
+const PREFIXES = {{ prefixes_json|safe }};
+const QUERIES  = {{ queries_json|safe }};
+const GRAPH    = {{ graph_json|safe }};
+const ENGINE   = {{ engine|tojson }};
+const MAX_ROWS = {{ max_rows }};
+
+const statusText = document.getElementById('status-text');
+const dot = document.getElementById('dot');
+let pyodide = null;
+
+function setStatus(text, state) {
+  statusText.textContent = text;
+  dot.className = 'dot ' + (state || '');
+}
+
+/* Escape once, centrally: cell values come from the graph and may contain <, &
+   or a stray quote, and building a table by string concatenation without this
+   is how an injection bug gets in. */
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function renderTable(cols, rows, elId, total) {
+  const out = document.getElementById(elId);
+  if (!rows.length) {
+    out.innerHTML = '<p class="note">No results. The query is valid but matched nothing.</p>';
+    return;
+  }
+  let h = '<div class="table-scroll"><table class="layer-table"><thead><tr>';
+  h += cols.map(c => `<th>${esc(c)}</th>`).join('');
+  h += '</tr></thead><tbody>';
+  for (const r of rows) {
+    h += '<tr>' + cols.map(c => {
+      const v = r[c];
+      if (v === null || v === undefined) return '<td class="nil">&mdash;</td>';
+      const s = String(v);
+      return /^https?:\/\//.test(s)
+        ? `<td><a href="${esc(s)}" target="_blank" rel="noopener">${esc(s)}</a></td>`
+        : `<td>${esc(s)}</td>`;
+    }).join('') + '</tr>';
+  }
+  h += '</tbody></table></div>';
+  h += `<p class="note">${total > rows.length
+    ? `Showing the first ${rows.length} of ${total} rows.`
+    : `${rows.length} row${rows.length === 1 ? '' : 's'}.`}</p>`;
+  out.innerHTML = h;
+}
+
+async function boot() {
+  if (ENGINE !== 'pyodide') {
+    const note = document.getElementById('graph-note');
+    note.hidden = false;
+    note.innerHTML = `Endpoint: <code>${esc(GRAPH.endpoint)}</code>` +
+      (GRAPH.from ? ` &middot; graph <code>${esc(GRAPH.from)}</code>` : '');
+    setStatus('Ready \u2014 edit a query and press Run.', 'ok');
+    return;
+  }
+  try {
+    pyodide = await loadPyodide();
+    setStatus('Installing rdflib\u2026', 'busy');
+    await pyodide.loadPackage('micropip');
+    await pyodide.runPythonAsync(`
+import micropip
+await micropip.install("rdflib=={{ rdflib_version }}")
+`);
+    setStatus('Loading the graph\u2026', 'busy');
+    pyodide.globals.set('_graph_url', GRAPH.url);
+    await pyodide.runPythonAsync(`
+from pyodide.http import pyfetch
+from rdflib import Graph
+
+_graphs = {}
+
+async def load(url, key):
+    """Fetch a Turtle file and parse it. Cached: re-running must not refetch."""
+    if key in _graphs:
+        return _graphs[key]
+    resp = await pyfetch(url)
+    if resp.status != 200:
+        raise RuntimeError(f"{url} -> HTTP {resp.status}")
+    g = Graph()
+    g.parse(data=await resp.string(), format="turtle")
+    _graphs[key] = g
+    return g
+
+base = await load(_graph_url, "base")
+n_base = len(base)
+`);
+    const n = pyodide.globals.get('n_base');
+    const note = document.getElementById('graph-note');
+    note.hidden = false;
+    note.innerHTML = `Graph loaded: <strong>${n}</strong> triples from ` +
+      `<code>${esc(GRAPH.file)}</code>${GRAPH.megabytes ? ` (${GRAPH.megabytes} MB)` : ''}.`;
+    setStatus('Ready \u2014 edit a query and press Run.', 'ok');
+    document.querySelectorAll('button.run').forEach(b => (b.disabled = false));
+  } catch (err) {
+    setStatus('Could not start: ' + err.message, 'err');
+    console.error(err);
+  }
+}
+
+async function runLocal(id, src) {
+  pyodide.globals.set('_q_src', PREFIXES + '\n' + src);
+  const json = await pyodide.runPythonAsync(`
+import json
+res = _graphs["base"].query(_q_src)
+cols = [str(v) for v in res.vars]
+_all = list(res)
+rows = [{c: (None if r[i] is None else str(r[i])) for i, c in enumerate(cols)}
+        for r in _all[:${MAX_ROWS}]]
+json.dumps({"cols": cols, "rows": rows, "n": len(_graphs["base"]), "total": len(_all)})
+`);
+  return JSON.parse(json);
+}
+
+async function runRemote(src) {
+  const q = PREFIXES + '\n' + src;
+  const resp = await fetch(GRAPH.endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/sparql-results+json'
+    },
+    body: new URLSearchParams({ query: q })
+  });
+  if (!resp.ok) throw new Error(`${GRAPH.endpoint} -> HTTP ${resp.status}`);
+  const data = await resp.json();
+  const cols = data.head.vars;
+  const all = data.results.bindings;
+  const rows = all.slice(0, MAX_ROWS).map(b =>
+    Object.fromEntries(cols.map(c => [c, b[c] ? b[c].value : null])));
+  return { cols, rows, n: null, total: all.length };
+}
+
+async function runQuery(id) {
+  const btn = document.querySelector(`button.run[data-q="${id}"]`);
+  const timing = document.getElementById('time-' + id);
+  const out = document.getElementById('out-' + id);
+  btn.disabled = true;
+  timing.textContent = 'running\u2026';
+  out.innerHTML = '';
+  const t0 = performance.now();
+  try {
+    const src = document.getElementById('src-' + id).value;
+    const data = ENGINE === 'pyodide' ? await runLocal(id, src) : await runRemote(src);
+    renderTable(data.cols, data.rows, 'out-' + id, data.total);
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    timing.textContent = data.n ? `${dt}s over ${data.n} triples` : `${dt}s`;
+  } catch (err) {
+    /* Show the real error. A malformed query is the normal case here — people
+       are meant to edit these — so the message has to be the actual error. */
+    out.innerHTML = `<pre class="error">${esc(err.message)}</pre>`;
+    timing.textContent = '';
+  }
+  btn.disabled = false;
+}
+
+document.querySelectorAll('button.run').forEach(b =>
+  b.addEventListener('click', () => runQuery(b.dataset.q)));
+document.querySelectorAll('button.reset').forEach(b =>
+  b.addEventListener('click', () => {
+    const id = b.dataset.q;
+    document.getElementById('src-' + id).value = QUERIES[id];
+    document.getElementById('out-' + id).innerHTML = '';
+    document.getElementById('time-' + id).textContent = '';
+  }));
+
+boot();
+</script>
+</body>
+</html>

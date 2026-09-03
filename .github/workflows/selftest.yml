@@ -1,0 +1,38 @@
+# Builds example/ on every push, so a change to the profile, the shapes or a
+# generator cannot be released without having produced a valid collection once.
+
+name: Self-test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  example:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install --quiet -r requirements.txt
+
+      - name: Build the example collection
+        working-directory: example
+        env:
+          N4O_STRICT: '1'
+        run: |
+          cp -r ../profile ../build .
+          python build/make_metadata.py
+          python build/build_sparql.py
+
+      - name: Reproducibility
+        working-directory: example
+        run: |
+          for f in dist/*.ttl; do cp "$f" "$f.run1"; done
+          N4O_STRICT=0 python build/make_metadata.py > /dev/null
+          for f in dist/*.ttl; do diff -q "$f.run1" "$f"; done

@@ -1,0 +1,123 @@
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix dcmitype: <http://purl.org/dc/dcmitype/> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix fabio: <http://purl.org/spar/fabio/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix n4o: <https://nfdi4objects.net/ontology#> .
+@prefix n4op: <https://w3id.org/nfdi4objects/profile/v0.1/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <https://schema.org/> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix spdx: <http://spdx.org/rdf/terms#> .
+@prefix void: <http://rdfs.org/ns/void#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://graph.nfdi4objects.net/collection/9> a fabio:Database,
+        dcat:Dataset ;
+    dct:accessRights <http://publications.europa.eu/resource/authority/access-right/PUBLIC> ;
+    dct:conformsTo <https://w3id.org/nfdi4objects/profile/v0.1> ;
+    dct:creator [ a foaf:Person ;
+            foaf:familyName "Thiery" ;
+            foaf:givenName "Florian" ;
+            foaf:name "Thiery, Florian" ;
+            n4o:orcidId <https://orcid.org/0000-0002-3246-3531> ;
+            schema:affiliation [ a foaf:Organization ;
+                    foaf:name "Research Squirrel Engineers Network" ] ] ;
+    dct:description "Linked-Open-Data-Repraesentation irischer Ogham-Steine, ihrer Inschriften, Lesungen und Fundorte, verknuepft mit Wikidata, OpenStreetMap und Pleiades."@de,
+        "Linked Open Data representation of Irish Ogham stones, their inscriptions, readings and find spots, linked to Wikidata, OpenStreetMap and Pleiades."@en ;
+    dct:isPartOf <https://graph.nfdi4objects.net/collection/> ;
+    dct:issued "2021-05-19"^^xsd:date ;
+    dct:language <http://id.loc.gov/vocabulary/iso639-1/en> ;
+    dct:license <http://creativecommons.org/licenses/by/4.0/> ;
+    dct:modified "2026-08-19"^^xsd:date ;
+    dct:publisher [ a foaf:Organization ;
+            foaf:name "Research Squirrel Engineers Network" ] ;
+    dct:title "Linked Open Ogham"@de,
+        "Linked Open Ogham"@en ;
+    dct:type dcmitype:Dataset ;
+    void:classPartition [ void:class <http://ontology.ogham.link/Inscription> ;
+            void:entities 1 ],
+        [ void:class <http://ontology.ogham.link/Reading> ;
+            void:entities 1 ],
+        [ void:class owl:Class ;
+            void:entities 4 ],
+        [ void:class owl:ObjectProperty ;
+            void:entities 2 ],
+        [ void:class <http://ontology.ogham.link/Townland> ;
+            void:entities 1 ],
+        [ void:class <http://ontology.ogham.link/OghamStone> ;
+            void:entities 2 ] ;
+    void:propertyPartition [ void:property <http://ontology.ogham.link/hasReading> ;
+            void:triples 1 ],
+        [ void:property rdf:type ;
+            void:triples 11 ],
+        [ void:property rdfs:label ;
+            void:triples 11 ],
+        [ void:property <http://ontology.ogham.link/within> ;
+            void:triples 2 ] ;
+    void:triples 25 ;
+    skos:notation "9" ;
+    dcat:distribution [ dct:title "RDF-Bundle (Daten und Ontologie)"@de,
+                "RDF bundle (data and ontology)"@en ;
+            dct:type n4op:roleBundle ;
+            dcat:accessURL <https://github.com/Research-Squirrel-Engineers/n4o-kg-profile/> ;
+            dcat:downloadURL <https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl> ;
+            dcat:mediaType <https://www.iana.org/assignments/media-types/text/turtle> ] ;
+    dcat:keyword "CIDOC CRM",
+        "Epigraphy",
+        "Ireland",
+        "Linked Open Data",
+        "Ogham" ;
+    dcat:landingPage <https://ogham.link/> ;
+    dcat:version "1.0.0" ;
+    foaf:homepage <https://doi.org/10.5281/zenodo.4765603> ;
+    schema:sameAs <http://www.wikidata.org/entity/Q123456789> ;
+    n4op:exampleQuery <file:///home/claude/buildtree/n4o-kg-profile/example/classes-with-counts>,
+        <file:///home/claude/buildtree/n4o-kg-profile/example/stones-via-crm> .
+
+<file:///home/claude/buildtree/n4o-kg-profile/example/classes-with-counts> a sh:SPARQLSelectExecutable ;
+    dct:title "Verwendete Klassen mit Anzahl"@de,
+        "Classes used, with counts"@en ;
+    rdfs:comment "Was in dieser Sammlung vorkommt — die Gegenprobe zur VoID-Statistik."@de,
+        "What occurs in this collection — the counterpart to the VoID statistics."@en ;
+    sh:select """PREFIX ogham: <http://ontology.ogham.link/>
+PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?class (COUNT(?s) AS ?count) WHERE {
+  ?s a ?class
+} GROUP BY ?class ORDER BY DESC(?count)
+""" .
+
+<file:///home/claude/buildtree/n4o-kg-profile/example/stones-via-crm> a sh:SPARQLSelectExecutable ;
+    dct:title "Ogham-Steine ueber die CRM-Oberklasse"@de,
+        "Ogham stones via their CRM superclass"@en ;
+    rdfs:comment "Prueft, ob die Ausrichtung auf CIDOC CRM greift: gefragt wird nach E22, geantwortet wird aus ogham:OghamStone."@de,
+        "Checks that the CIDOC CRM alignment works: the query asks for E22 and is answered from ogham:OghamStone."@en ;
+    sh:select """PREFIX ogham: <http://ontology.ogham.link/>
+PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?stone ?label WHERE {
+  ?stone a/rdfs:subClassOf* crm:E22_Human-Made_Object ;
+         rdfs:label ?label
+} ORDER BY ?label
+""" .
+
+<http://ontology.ogham.link/Inscription> rdfs:subClassOf crm:E34_Inscription .
+
+<http://ontology.ogham.link/OghamStone> rdfs:subClassOf crm:E22_Human-Made_Object .
+
+<http://ontology.ogham.link/Reading> rdfs:subClassOf crm:E33_Linguistic_Object .
+
+<http://ontology.ogham.link/Townland> rdfs:subClassOf crm:E53_Place .
+
+<http://ontology.ogham.link/within> rdfs:subPropertyOf crm:P89_falls_within .
+
+<https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl> spdx:checksum [ spdx:algorithm spdx:checksumAlgorithm_sha256 ;
+            spdx:checksumValue "af28e5d5e30d327d724f02a7c3e1521f9ee19fd5649c04f5549678d757b62fa8" ] .
+
