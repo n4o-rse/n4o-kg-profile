@@ -13,7 +13,7 @@ authors:
     affiliation: LEIZA / Research Squirrel Engineers Network
 version: 0.1.0
 license: MIT
-repository-code: https://github.com/Research-Squirrel-Engineers/n4o-kg-profile
+repository-code: https://github.com/n4o-rse/n4o-kg-profile
 keywords:
   - Linked Open Data
   - NFDI4Objects

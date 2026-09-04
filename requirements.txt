@@ -1,0 +1,12 @@
+
+# Reconstructed 2026-09-04: this file did not exist in the repository at all
+# (empty `git log --all -- requirements.txt`), even though both action.yml
+# and .github/workflows/selftest.yml install from it - every run of either
+# has been failing at "Install dependencies" from the start, independently
+# of the checkout-target bug fixed in the same patch. Versions read off the
+# actual imports in build/make_metadata.py and build/build_sparql.py.
+
+rdflib>=7.0          # graph building, canonical serialisation, rdflib.compare
+pyshacl>=0.26         # the SHACL gate (imported lazily in make_metadata.py)
+PyYAML>=6.0           # metadata.yaml (YAML-LD)
+Jinja2>=3.1           # docs/index.html.j2, docs/sparql.html.j2

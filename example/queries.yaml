@@ -24,7 +24,7 @@ collection:
   - Thiery, Florian
   distributions:
   - title: RDF bundle (data and ontology)
-    url: https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl
+    url: https://raw.githubusercontent.com/n4o-rse/n4o-kg-profile/main/example/rdf/example-bundle.ttl
   triples: 25
   classes: 6
   properties: 4

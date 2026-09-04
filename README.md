@@ -6,7 +6,7 @@ You maintain one file — `metadata.yaml` — and a GitHub Action produces the
 metadata RDF, the registration record the N4O KG reads, a CIDOC CRM alignment,
 and a browsable SPARQL page on GitHub Pages.
 
-[![Self-test](https://github.com/Research-Squirrel-Engineers/n4o-kg-profile/actions/workflows/selftest.yml/badge.svg)](https://github.com/Research-Squirrel-Engineers/n4o-kg-profile/actions/workflows/selftest.yml)
+[![Self-test](https://github.com/n4o-rse/n4o-kg-profile/actions/workflows/selftest.yml/badge.svg)](https://github.com/n4o-rse/n4o-kg-profile/actions/workflows/selftest.yml)
 
 ---
 
@@ -77,7 +77,7 @@ collection repository.
 
    jobs:
      collection:
-       uses: Research-Squirrel-Engineers/n4o-kg-profile/.github/workflows/collection.yml@v1
+       uses: n4o-rse/n4o-kg-profile/.github/workflows/collection.yml@v1
        with:
          strict: true
    ```
@@ -139,7 +139,7 @@ Use the reusable workflow (build **and** Pages) unless you need finer control:
 ```yaml
 jobs:
   collection:
-    uses: Research-Squirrel-Engineers/n4o-kg-profile/.github/workflows/collection.yml@v1
+    uses: n4o-rse/n4o-kg-profile/.github/workflows/collection.yml@v1
     with:
       metadata: metadata.yaml   # default
       strict: true              # default
@@ -150,7 +150,7 @@ jobs:
 Or call the action directly inside your own job:
 
 ```yaml
-- uses: Research-Squirrel-Engineers/n4o-kg-profile@v1
+- uses: n4o-rse/n4o-kg-profile@v1
   id: n4o
   with:
     metadata: metadata.yaml

@@ -5,7 +5,7 @@
 # bundle). This action brings the profile, the context, the shapes and both
 # generators with it, and produces dist/ and docs/.
 #
-#   - uses: Research-Squirrel-Engineers/n4o-kg-profile@v1
+#   - uses: n4o-rse/n4o-kg-profile@v1
 #     with:
 #       metadata: metadata.yaml
 #       strict: true
@@ -58,7 +58,7 @@ runs:
     - name: Check out the profile
       uses: actions/checkout@v4
       with:
-        repository: Research-Squirrel-Engineers/n4o-kg-profile
+        repository: n4o-rse/n4o-kg-profile
         # The same release that was referenced in `uses:`, so a collection
         # pinned to @v1 keeps getting v1 for as long as it says so.
         ref: ${{ github.action_ref }}

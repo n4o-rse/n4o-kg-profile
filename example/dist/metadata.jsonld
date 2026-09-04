@@ -68,8 +68,8 @@
         "de": "RDF-Bundle (Daten und Ontologie)"
       },
       "file": "rdf/example-bundle.ttl",
-      "accessURL": "https://github.com/Research-Squirrel-Engineers/n4o-kg-profile/",
-      "downloadURL": "https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl",
+      "accessURL": "https://github.com/n4o-rse/n4o-kg-profile/",
+      "downloadURL": "https://raw.githubusercontent.com/n4o-rse/n4o-kg-profile/main/example/rdf/example-bundle.ttl",
       "mediaType": "https://www.iana.org/assignments/media-types/text/turtle"
     }
   ],

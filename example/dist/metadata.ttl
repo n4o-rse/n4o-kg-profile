@@ -64,8 +64,8 @@
     dcat:distribution [ dct:title "RDF-Bundle (Daten und Ontologie)"@de,
                 "RDF bundle (data and ontology)"@en ;
             dct:type n4op:roleBundle ;
-            dcat:accessURL <https://github.com/Research-Squirrel-Engineers/n4o-kg-profile/> ;
-            dcat:downloadURL <https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl> ;
+            dcat:accessURL <https://github.com/n4o-rse/n4o-kg-profile/> ;
+            dcat:downloadURL <https://raw.githubusercontent.com/n4o-rse/n4o-kg-profile/main/example/rdf/example-bundle.ttl> ;
             dcat:mediaType <https://www.iana.org/assignments/media-types/text/turtle> ] ;
     dcat:keyword "CIDOC CRM",
         "Epigraphy",
@@ -76,10 +76,10 @@
     dcat:version "1.0.0" ;
     foaf:homepage <https://doi.org/10.5281/zenodo.4765603> ;
     schema:sameAs <http://www.wikidata.org/entity/Q123456789> ;
-    n4op:exampleQuery <file:///home/claude/buildtree/n4o-kg-profile/example/classes-with-counts>,
-        <file:///home/claude/buildtree/n4o-kg-profile/example/stones-via-crm> .
+    n4op:exampleQuery <file:///C:/git/n4o-kg-profile/example/classes-with-counts>,
+        <file:///C:/git/n4o-kg-profile/example/stones-via-crm> .
 
-<file:///home/claude/buildtree/n4o-kg-profile/example/classes-with-counts> a sh:SPARQLSelectExecutable ;
+<file:///C:/git/n4o-kg-profile/example/classes-with-counts> a sh:SPARQLSelectExecutable ;
     dct:title "Verwendete Klassen mit Anzahl"@de,
         "Classes used, with counts"@en ;
     rdfs:comment "Was in dieser Sammlung vorkommt — die Gegenprobe zur VoID-Statistik."@de,
@@ -93,7 +93,7 @@ SELECT ?class (COUNT(?s) AS ?count) WHERE {
 } GROUP BY ?class ORDER BY DESC(?count)
 """ .
 
-<file:///home/claude/buildtree/n4o-kg-profile/example/stones-via-crm> a sh:SPARQLSelectExecutable ;
+<file:///C:/git/n4o-kg-profile/example/stones-via-crm> a sh:SPARQLSelectExecutable ;
     dct:title "Ogham-Steine ueber die CRM-Oberklasse"@de,
         "Ogham stones via their CRM superclass"@en ;
     rdfs:comment "Prueft, ob die Ausrichtung auf CIDOC CRM greift: gefragt wird nach E22, geantwortet wird aus ogham:OghamStone."@de,
@@ -118,6 +118,6 @@ SELECT ?stone ?label WHERE {
 
 <http://ontology.ogham.link/within> rdfs:subPropertyOf crm:P89_falls_within .
 
-<https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl> spdx:checksum [ spdx:algorithm spdx:checksumAlgorithm_sha256 ;
+<https://raw.githubusercontent.com/n4o-rse/n4o-kg-profile/main/example/rdf/example-bundle.ttl> spdx:checksum [ spdx:algorithm spdx:checksumAlgorithm_sha256 ;
             spdx:checksumValue "af28e5d5e30d327d724f02a7c3e1521f9ee19fd5649c04f5549678d757b62fa8" ] .
 

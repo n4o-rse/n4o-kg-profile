@@ -11,6 +11,6 @@ on:
 
 jobs:
   collection:
-    uses: Research-Squirrel-Engineers/n4o-kg-profile/.github/workflows/collection.yml@v1
+    uses: n4o-rse/n4o-kg-profile/.github/workflows/collection.yml@v1
     with:
       strict: true

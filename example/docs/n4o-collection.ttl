@@ -12,7 +12,7 @@
     dct:issued "2021-05-19"^^xsd:date ;
     dct:license <http://creativecommons.org/licenses/by/4.0/> ;
     skos:notation "9" ;
-    dcat:downloadURL <https://raw.githubusercontent.com/Research-Squirrel-Engineers/n4o-kg-profile/main/example/rdf/example-bundle.ttl> ;
+    dcat:downloadURL <https://raw.githubusercontent.com/n4o-rse/n4o-kg-profile/main/example/rdf/example-bundle.ttl> ;
     foaf:homepage <https://doi.org/10.5281/zenodo.4765603> ;
     schema:name "Linked Open Ogham"@de,
         "Linked Open Ogham"@en ;
