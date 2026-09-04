@@ -55,22 +55,13 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Check out the profile
-      uses: actions/checkout@v4
-      with:
-        repository: n4o-rse/n4o-kg-profile
-        # The same release that was referenced in `uses:`, so a collection
-        # pinned to @v1 keeps getting v1 for as long as it says so.
-        ref: ${{ github.action_ref }}
-        path: .n4o-profile
-
     - uses: actions/setup-python@v5
       with:
         python-version: ${{ inputs.python-version }}
 
     - name: Install dependencies
       shell: bash
-      run: pip install --quiet -r .n4o-profile/requirements.txt
+      run: pip install --quiet -r "${{ github.action_path }}/requirements.txt"
 
     - name: Place the profile
       shell: bash
@@ -79,9 +70,22 @@ runs:
         # never from the collection repository. A collection therefore cannot
         # quietly carry a divergent context or divergent shapes — the failure
         # mode that makes a family of repositories drift apart over years.
+        #
+        # No checkout needed to get them: the runner already fetched this
+        # action's own repository, at exactly the ref a caller's `uses:`
+        # pinned, into github.action_path before running any of these steps -
+        # that is what running a composite action means. An earlier version
+        # of this step re-fetched the same repository via actions/checkout
+        # with `ref: github.action_ref`, which is unreliable inside a
+        # composite action (observed 2026-09-04: it resolved to the ref of
+        # the *nested* actions/checkout step itself - "v4", from
+        # actions/checkout@v4 - rather than this action's own "v1", and the
+        # resulting fetch failed outright). Copying from github.action_path
+        # is simpler, needs no network access and cannot resolve to the
+        # wrong ref, because there is no ref to resolve.
         rm -rf profile build
-        cp -r .n4o-profile/profile profile
-        cp -r .n4o-profile/build build
+        cp -r "${{ github.action_path }}/profile" profile
+        cp -r "${{ github.action_path }}/build" build
 
     - name: Build the metadata
       id: build
@@ -138,4 +142,4 @@ runs:
     - name: Clean up
       if: always()
       shell: bash
-      run: rm -rf .n4o-profile n4o-build.log
+      run: rm -f n4o-build.log
