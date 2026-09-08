@@ -155,6 +155,9 @@
     "prefixes": null,
     "file": null,
     "model": null,
+    "map": null,
+    "view": null,
+    "view_columns": null,
     "page": null
   }
 }

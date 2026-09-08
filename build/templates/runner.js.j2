@@ -1,0 +1,295 @@
+/* Shared by every query page and by all.html, so the two cannot drift.
+   Generated from queries.yaml by build/build_sparql.py — edit the template,
+   not this file. */
+
+const PREFIXES = {{ prefixes_json }};
+const GRAPH    = {{ graph_json }};
+const ENGINE   = {{ engine|tojson }};
+const MAX_ROWS = {{ max_rows }};
+
+let pyodide = null;
+const listeners = [];
+export function onReady(fn) { listeners.push(fn); }
+
+function setStatus(text, state) {
+  document.querySelectorAll('[data-status-text]').forEach(e => e.textContent = text);
+  document.querySelectorAll('[data-dot]').forEach(e => e.className = 'dot ' + (state || ''));
+}
+
+/* Escape once, centrally: cell values come from the graph and may contain <,
+   & or a stray quote, and building a table by string concatenation without
+   this is how an injection bug gets in. */
+export function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+export async function boot() {
+  if (ENGINE !== 'pyodide') {
+    setStatus('Ready \u2014 edit a query and press Run.', 'ok');
+    listeners.forEach(f => f());
+    return;
+  }
+  try {
+    setStatus('Loading the Python runtime (~10 MB on first visit)\u2026', 'busy');
+    pyodide = await loadPyodide();
+    setStatus('Installing rdflib\u2026', 'busy');
+    await pyodide.loadPackage('micropip');
+    await pyodide.runPythonAsync(`
+import micropip
+await micropip.install("rdflib=={{ rdflib_version }}")
+`);
+    setStatus('Loading the graph\u2026', 'busy');
+    pyodide.globals.set('_graph_url', GRAPH.page_url);
+    await pyodide.runPythonAsync(`
+from pyodide.http import pyfetch
+from rdflib import Graph
+
+_graphs = {}
+
+async def load(url, key):
+    """Fetch a Turtle file and parse it. Cached: re-running must not refetch."""
+    if key in _graphs:
+        return _graphs[key]
+    resp = await pyfetch(url)
+    if resp.status != 200:
+        raise RuntimeError(f"{url} -> HTTP {resp.status}")
+    g = Graph()
+    g.parse(data=await resp.string(), format="turtle")
+    _graphs[key] = g
+    return g
+
+base = await load(_graph_url, "base")
+n_base = len(base)
+`);
+    const n = pyodide.globals.get('n_base');
+    document.querySelectorAll('[data-graph-note]').forEach(e => {
+      e.hidden = false;
+      e.innerHTML = `Graph loaded: <strong>${n}</strong> triples from ` +
+        `<code>${esc(GRAPH.file)}</code>` +
+        (GRAPH.megabytes ? ` (${GRAPH.megabytes} MB).` : '.') +
+        ` <a href="${esc(GRAPH.page_url)}">Download the Turtle file.</a>`;
+    });
+    setStatus('Ready \u2014 press Run, or edit the query first.', 'ok');
+    document.querySelectorAll('button.run').forEach(b => (b.disabled = false));
+    listeners.forEach(f => f());
+  } catch (err) {
+    setStatus('Could not start: ' + err.message, 'err');
+    console.error(err);
+  }
+}
+
+export async function ask(src) {
+  if (ENGINE === 'pyodide') {
+    pyodide.globals.set('_q_src', PREFIXES + '\n' + src);
+    const json = await pyodide.runPythonAsync(`
+import json
+res = _graphs["base"].query(_q_src)
+cols = [str(v) for v in res.vars]
+_all = list(res)
+rows = [{c: (None if r[i] is None else str(r[i])) for i, c in enumerate(cols)}
+        for r in _all[:${MAX_ROWS}]]
+json.dumps({"cols": cols, "rows": rows, "n": len(_graphs["base"]), "total": len(_all)})
+`);
+    return JSON.parse(json);
+  }
+  const resp = await fetch(GRAPH.endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded',
+               'Accept': 'application/sparql-results+json' },
+    body: new URLSearchParams({ query: PREFIXES + '\n' + src })
+  });
+  if (!resp.ok) throw new Error(`${GRAPH.endpoint} -> HTTP ${resp.status}`);
+  const data = await resp.json();
+  const cols = data.head.vars;
+  const all = data.results.bindings;
+  return { cols, total: all.length, n: null,
+           rows: all.slice(0, MAX_ROWS).map(b =>
+             Object.fromEntries(cols.map(c => [c, b[c] ? b[c].value : null]))) };
+}
+
+/* ---- table ------------------------------------------------------------- */
+
+export function renderTable(el, data) {
+  if (!data.rows.length) {
+    el.innerHTML = '<p class="note">No results. The query is valid but matched nothing.</p>';
+    return;
+  }
+  let h = '<div class="table-scroll"><table class="layer-table"><thead><tr>';
+  h += data.cols.map(c => `<th>${esc(c)}</th>`).join('') + '</tr></thead><tbody>';
+  for (const r of data.rows) {
+    h += '<tr>' + data.cols.map(c => {
+      const v = r[c];
+      if (v === null || v === undefined) return '<td class="nil">&mdash;</td>';
+      const s = String(v);
+      return /^https?:\/\//.test(s)
+        ? `<td><a href="${esc(s)}" target="_blank" rel="noopener">${esc(s)}</a></td>`
+        : `<td>${esc(s)}</td>`;
+    }).join('') + '</tr>';
+  }
+  h += '</tbody></table></div>';
+  h += `<p class="note">${data.total > data.rows.length
+    ? `Showing the first ${data.rows.length} of ${data.total} rows.`
+    : `${data.rows.length} row${data.rows.length === 1 ? '' : 's'}.`}</p>`;
+  el.innerHTML = h;
+}
+
+/* ---- views ------------------------------------------------------------- */
+
+/* A view draws above the table, never instead of it. When the column it
+   needs is not in the result — because the reader edited the query, which
+   is the point of the page — it says so rather than going blank. */
+function missing(el, what) {
+  el.innerHTML = `<p class="note warn">The ${what} is not in this result, so
+    only the table is shown. Restore the column, or press Reset.</p>`;
+}
+
+const PALETTE = ['#2a5d8f', '#b3392b', '#2e7d32', '#d99000', '#6a4c93',
+                 '#00838f', '#8d6e63', '#c2185b', '#546e7a', '#7cb342'];
+const colourFor = (() => {
+  const seen = new Map();
+  return v => {
+    if (!seen.has(v)) seen.set(v, PALETTE[seen.size % PALETTE.length]);
+    return seen.get(v);
+  };
+})();
+
+/* POINT(lon lat), the shape GeoSPARQL asWKT gives. Read here rather than
+   asked of the query, so a map needs no STRBEFORE gymnastics in SPARQL. */
+function parsePoint(s) {
+  const m = /^\s*POINT\s*\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)\s*$/i.exec(String(s || ''));
+  return m ? { lon: +m[1], lat: +m[2] } : null;
+}
+
+function findGeoColumn(data) {
+  for (const c of data.cols) {
+    for (const r of data.rows) if (parsePoint(r[c])) return c;
+  }
+  return null;
+}
+
+export function hasGeometry(data) {
+  return !!findGeoColumn(data);
+}
+
+export function renderMap(el, data, cols) {
+  const geoCol = cols.wkt || findGeoColumn(data);
+  if (!geoCol) { missing(el, 'coordinate column'); return; }
+  el.innerHTML = '<div class="map-wrap"><div class="mapbox"></div></div>' +
+                 '<div class="legend"></div>';
+  const box = el.querySelector('.mapbox');
+  const map = L.map(box).setView([52.4, 14.0], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  const bounds = [], used = new Map();
+  let dropped = 0;
+  for (const r of data.rows) {
+    const p = parsePoint(r[geoCol]);
+    if (!p) { dropped++; continue; }
+    const key = cols.colour ? r[cols.colour] : null;
+    const colour = key ? colourFor(key) : PALETTE[0];
+    if (key) used.set(key, colour);
+    const marker = L.circleMarker([p.lat, p.lon], {
+      radius: 5, color: colour, weight: 1, fillColor: colour, fillOpacity: 0.65
+    }).addTo(map);
+    const title = r[cols.label] || r[data.cols[0]] || '';
+    marker.bindPopup('<h4>' + esc(title) + '</h4><ul>' +
+      data.cols.filter(c => c !== geoCol && String(r[c] ?? '') !== '')
+        .map(c => `<li>${esc(c)}: ${esc(r[c])}</li>`).join('') + '</ul>');
+    bounds.push([p.lat, p.lon]);
+  }
+  if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
+  const legend = el.querySelector('.legend');
+  legend.innerHTML =
+    [...used.entries()].map(([k, c]) =>
+      `<span class="key"><span class="swatch" style="background:${c}"></span>${esc(k)}</span>`).join('') +
+    `<span class="note">${bounds.length} point${bounds.length === 1 ? '' : 's'}` +
+    (dropped ? `, ${dropped} row${dropped === 1 ? '' : 's'} without coordinates` : '') + '.</span>';
+  setTimeout(() => map.invalidateSize(), 60);
+}
+
+function svg(width, height, body) {
+  return `<svg viewBox="0 0 ${width} ${height}" class="chart" role="img">${body}</svg>`;
+}
+
+export function renderBarchart(el, data, cols) {
+  const cat = cols.category, val = cols.value;
+  if (!data.cols.includes(cat) || !data.cols.includes(val)) {
+    missing(el, `column pair ?${cat} / ?${val}`); return;
+  }
+  const rows = data.rows.map(r => ({ k: String(r[cat] ?? ''), v: +r[val] }))
+                        .filter(r => !isNaN(r.v));
+  if (!rows.length) { missing(el, `numeric column ?${val}`); return; }
+  const max = Math.max(...rows.map(r => r.v));
+  const rowH = 22, padL = 190, w = 820, h = rows.length * rowH + 16;
+  let body = '';
+  rows.forEach((r, i) => {
+    const y = i * rowH + 4, len = Math.max(1, (w - padL - 70) * r.v / max);
+    body += `<text x="${padL - 8}" y="${y + 13}" text-anchor="end" class="lab">${esc(r.k.slice(0, 34))}</text>`;
+    body += `<rect x="${padL}" y="${y + 3}" width="${len}" height="${rowH - 9}" class="bar"/>`;
+    body += `<text x="${padL + len + 6}" y="${y + 13}" class="val">${esc(r.v)}</text>`;
+  });
+  el.innerHTML = svg(w, h, body);
+}
+
+export function renderScatter(el, data, cols) {
+  const xs = cols.x, ys = cols.y;
+  if (!data.cols.includes(xs) || !data.cols.includes(ys)) {
+    missing(el, `column pair ?${xs} / ?${ys}`); return;
+  }
+  const pts = data.rows.map(r => ({ x: +r[xs], y: +r[ys], l: r[cols.label] }))
+                       .filter(p => !isNaN(p.x) && !isNaN(p.y));
+  if (!pts.length) { missing(el, `numeric columns ?${xs} / ?${ys}`); return; }
+  const w = 820, h = 340, m = 46;
+  const xr = [Math.min(...pts.map(p => p.x)), Math.max(...pts.map(p => p.x))];
+  const yr = [Math.min(...pts.map(p => p.y)), Math.max(...pts.map(p => p.y))];
+  const sx = v => m + (w - m - 14) * (xr[1] === xr[0] ? 0.5 : (v - xr[0]) / (xr[1] - xr[0]));
+  const sy = v => h - m - (h - m - 14) * (yr[1] === yr[0] ? 0.5 : (v - yr[0]) / (yr[1] - yr[0]));
+  let body = `<line x1="${m}" y1="${h - m}" x2="${w - 8}" y2="${h - m}" class="axis"/>` +
+             `<line x1="${m}" y1="10" x2="${m}" y2="${h - m}" class="axis"/>` +
+             `<text x="${w - 8}" y="${h - m + 26}" text-anchor="end" class="lab">${esc(xs)}</text>` +
+             `<text x="4" y="18" class="lab">${esc(ys)}</text>`;
+  for (const p of pts) {
+    body += `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="4" class="dotm">` +
+            `<title>${esc(p.l ?? '')} (${esc(p.x)}, ${esc(p.y)})</title></circle>`;
+  }
+  el.innerHTML = svg(w, h, body);
+}
+
+export function renderIntervals(el, data, cols) {
+  const f = cols.from, t = cols.to;
+  if (!data.cols.includes(f) || !data.cols.includes(t)) {
+    missing(el, `column pair ?${f} / ?${t}`); return;
+  }
+  const rows = data.rows.map(r => ({
+    l: String(r[cols.label] ?? ''), a: +r[f], b: +r[t] }))
+    .filter(r => !isNaN(r.a) && !isNaN(r.b));
+  if (!rows.length) { missing(el, `numeric columns ?${f} / ?${t}`); return; }
+  const lo = Math.min(...rows.map(r => r.a)), hi = Math.max(...rows.map(r => r.b));
+  const padL = 190, w = 820, rowH = 26, h = rows.length * rowH + 40;
+  const sx = v => padL + (w - padL - 20) * (hi === lo ? 0.5 : (v - lo) / (hi - lo));
+  let body = '';
+  // A few round ticks, so the bars sit on a scale rather than floating.
+  const step = Math.pow(10, Math.floor(Math.log10(Math.max(1, (hi - lo) / 4))));
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    body += `<line x1="${sx(v).toFixed(1)}" y1="16" x2="${sx(v).toFixed(1)}" y2="${h - 24}" class="grid"/>`;
+    body += `<text x="${sx(v).toFixed(1)}" y="${h - 8}" text-anchor="middle" class="lab">${v}</text>`;
+  }
+  rows.forEach((r, i) => {
+    const y = i * rowH + 20;
+    body += `<text x="${padL - 8}" y="${y + 13}" text-anchor="end" class="lab">${esc(r.l.slice(0, 34))}</text>`;
+    const x1 = sx(r.a), x2 = sx(r.b);
+    body += `<rect x="${x1.toFixed(1)}" y="${y + 4}" width="${Math.max(2, x2 - x1).toFixed(1)}" ` +
+            `height="${rowH - 12}" class="bar"><title>${esc(r.l)}: ${r.a} to ${r.b}</title></rect>`;
+  });
+  el.innerHTML = svg(w, h, body);
+}
+
+export const VIEWS = {
+  map: renderMap, barchart: renderBarchart,
+  scatter: renderScatter, intervals: renderIntervals
+};

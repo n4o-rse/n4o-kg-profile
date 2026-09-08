@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+{% include "_head.html.j2" %}
+<title>{{ page.title|default('Queries') }} &mdash; queries</title>
+</head>
+<body>
+<div class="container">
+  <nav class="nav">
+    <a href="../index.html">Collection</a>
+    <a href="index.html" class="active">Queries</a>
+    <a href="../map.html">Map</a>
+  </nav>
+
+  <header class="page-head">
+    <h1>{{ page.title|default('Query this collection') }}</h1>
+    {% if page.intro %}<p class="intro">{{ page.intro }}</p>{% endif %}
+    <p class="note">
+    {% if engine == 'pyodide' %}
+      Every query below runs in your browser: the graph is fetched as a static
+      Turtle file and queried with rdflib under Pyodide. There is no endpoint,
+      nothing you type leaves your machine, and an archived copy of this
+      repository stays queryable with no service to keep alive. The first page
+      you open downloads roughly 10&nbsp;MB of Python runtime; after that the
+      browser has it cached.
+    {% else %}
+      Every query below runs against the NFDI4Objects Knowledge Graph endpoint,
+      scoped to this collection.
+    {% endif %}
+    </p>
+  </header>
+
+  <ul class="qlist">
+{% for q in queries %}
+    <li>
+      <a class="title" href="{{ q.id }}.html">{{ q.title }}</a>
+      <p>{{ q.blurb }}</p>
+      <p class="meta">
+        <span class="tag">{{ q.view_label }}</span>
+        <span class="tag">{{ q.rows_at_build }} rows when built</span>
+        <a href="rq/{{ q.id }}.rq">{{ q.id }}.rq</a>
+      </p>
+    </li>
+{% endfor %}
+  </ul>
+
+  <footer class="page-foot">
+    <p>
+      All of them on one page: <a href="all.html">all.html</a>. The plain
+      <code>.rq</code> files are in <code>rq/</code>, and the graph itself is
+      <a href="{{ graph.page_url }}">{{ graph.url }}</a>{% if graph.megabytes %}
+      ({{ graph.megabytes }}&nbsp;MB){% endif %}. The same queries are in
+      <a href="../metadata.ttl">metadata.ttl</a> as
+      <code>sh:SPARQLSelectExecutable</code>, where a harvester can read them.
+    </p>
+  </footer>
+</div>
+</body>
+</html>

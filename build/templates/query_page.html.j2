@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+{% include "_head.html.j2" %}
+<title>{{ query.title }} &mdash; {{ page.title|default('queries') }}</title>
+</head>
+<body>
+<div class="container">
+  <nav class="nav">
+    <a href="../index.html">Collection</a>
+    <a href="index.html">Queries</a>
+    <a href="../map.html">Map</a>
+  </nav>
+
+  <p class="meta"><a href="index.html">&larr; All queries</a></p>
+
+  <header class="page-head">
+    <h1>{{ query.title }}</h1>
+    {% if query.intro %}<p class="intro">{{ query.intro }}</p>{% endif %}
+  </header>
+
+{% include "_status.html.j2" %}
+
+  <section class="query">
+    <textarea class="sparql" id="src" spellcheck="false" rows="{{ query.rows }}">{{ query.sparql }}</textarea>
+    <div class="query-bar">
+      <button class="run" id="run"{% if engine == 'pyodide' %} disabled{% endif %}>Run</button>
+      <button class="reset" id="reset">Reset</button>
+      <a class="rq" href="rq/{{ query.id }}.rq" download>{{ query.id }}.rq</a>
+      <span class="timing" id="timing"></span>
+    </div>
+    <div class="view" id="view"></div>
+    <div class="result" id="out"></div>
+  </section>
+
+  <footer class="page-foot">
+    <p>
+      Also available as a plain file: <a href="rq/{{ query.id }}.rq"><code>{{ query.id }}.rq</code></a>.
+      The graph is <a href="{{ graph.page_url }}">{{ graph.url }}</a>{% if graph.megabytes %}
+      ({{ graph.megabytes }}&nbsp;MB){% endif %}.
+    </p>
+  </footer>
+</div>
+
+<script type="module">
+import { boot, ask, renderTable, hasGeometry, renderMap, VIEWS } from './runner.js';
+
+const VIEW = {{ view|tojson }};
+const COLS = {{ view_cols_json }};
+const ORIGINAL = {{ query_json }};
+const src = document.getElementById('src');
+const out = document.getElementById('out');
+const viewEl = document.getElementById('view');
+const timing = document.getElementById('timing');
+const btn = document.getElementById('run');
+
+async function run() {
+  btn.disabled = true;
+  timing.textContent = 'running\u2026';
+  out.innerHTML = ''; viewEl.innerHTML = '';
+  const t0 = performance.now();
+  try {
+    const data = await ask(src.value);
+    /* The map is drawn whenever the result carries coordinates, whatever the
+       query declared: a result with points is a result worth seeing on a map,
+       and the reader should not have to know about a config key to get one. */
+    if (VIEW !== 'table' && VIEWS[VIEW]) VIEWS[VIEW](viewEl, data, COLS);
+    else if (hasGeometry(data)) renderMap(viewEl, data, COLS);
+    renderTable(out, data);
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    timing.textContent = data.n ? `${dt}s over ${data.n} triples` : `${dt}s`;
+  } catch (err) {
+    /* Show the real error. A malformed query is the normal case here — people
+       are meant to edit these — so the message has to be the actual error. */
+    out.innerHTML = `<pre class="error">${err.message}</pre>`;
+    timing.textContent = '';
+  }
+  btn.disabled = false;
+}
+
+btn.addEventListener('click', run);
+document.getElementById('reset').addEventListener('click', () => {
+  src.value = ORIGINAL; out.innerHTML = ''; viewEl.innerHTML = ''; timing.textContent = '';
+});
+boot();
+</script>
+</body>
+</html>

@@ -106,8 +106,28 @@ model:
 # and which the N4O KG can harvest. Prefixes are maintained once, here, and
 # injected into every query that ships.
 
+# The map of the whole collection. One query, one page (docs/map.html); the
+# colour menu is built from whatever columns the query returns, so editing it
+# is how you re-colour the map.
+
+map:
+  title:
+    en: Where the Ogham stones are
+    de: Wo die Ogham-Steine stehen
+  intro:
+    en: Every stone in the collection that carries a coordinate.
+    de: Jeder Stein der Sammlung, der eine Koordinate traegt.
+  colour_column: kind
+  sparql: |
+    SELECT ?label ?kind ?wkt WHERE {
+      ?s a ?cls ; rdfs:label ?label ;
+         geo:hasGeometry/geo:asWKT ?wkt .
+      BIND(REPLACE(STR(?cls), "^.*[/#]", "") AS ?kind)
+    }
+
 prefixes: |
   PREFIX ogham: <http://ontology.ogham.link/>
+  PREFIX geo: <http://www.opengis.net/ont/geosparql#>
   PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
   PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 
@@ -123,6 +143,27 @@ queries:
       SELECT ?class (COUNT(?s) AS ?count) WHERE {
         ?s a ?class
       } GROUP BY ?class ORDER BY DESC(?count)
+
+  - id: stones-on-a-map
+    view: map
+    view_columns: {label: label, colour: kind}
+    title:
+      en: The stones, on a map
+      de: Die Steine auf der Karte
+    intro:
+      en: >-
+        A result that carries coordinates is drawn on a map above the table.
+        The table stays: edit the query, drop the geometry, and the map says
+        so rather than going blank.
+      de: >-
+        Ein Ergebnis mit Koordinaten wird ueber der Tabelle als Karte
+        gezeichnet. Die Tabelle bleibt.
+    sparql: |
+      SELECT ?label ?kind ?wkt WHERE {
+        ?s a ?cls ; rdfs:label ?label ;
+           geo:hasGeometry/geo:asWKT ?wkt .
+        BIND(REPLACE(STR(?cls), "^.*[/#]", "") AS ?kind)
+      }
 
   - id: stones-via-crm
     title:

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+{% include "_head.html.j2" %}
+<title>{{ map.title|default('Map') }}</title>
+</head>
+<body>
+<div class="container">
+  <nav class="nav">
+    <a href="index.html">Collection</a>
+    <a href="query/index.html">Queries</a>
+    <a href="map.html" class="active">Map</a>
+  </nav>
+
+  <header class="page-head">
+    <h1>{{ map.title|default('Where these things are') }}</h1>
+    {% if map.intro %}<p class="intro">{{ map.intro }}</p>{% endif %}
+  </header>
+
+{% include "_status.html.j2" %}
+
+  <div class="controls">
+    <label for="colour">Colour by</label>
+    <select id="colour"></select>
+  </div>
+
+  <div class="view" id="view"></div>
+
+  <details class="sources">
+    <summary>The query behind this map</summary>
+    <textarea class="sparql" id="src" spellcheck="false" rows="14">{{ map.sparql.rstrip() }}</textarea>
+    <div class="query-bar">
+      <button class="run" id="run"{% if engine == 'pyodide' %} disabled{% endif %}>Run</button>
+      <span class="timing" id="timing"></span>
+    </div>
+  </details>
+
+  <div class="result" id="out"></div>
+
+  <footer class="page-foot">
+    <p>
+      Same graph as the <a href="query/index.html">query pages</a>, so this map
+      cannot show a different corpus than they do.
+      Base map &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.
+    </p>
+  </footer>
+</div>
+
+<script type="module">
+import { boot, onReady, ask, renderTable, renderMap } from './query/runner.js';
+
+const src = document.getElementById('src');
+const sel = document.getElementById('colour');
+const viewEl = document.getElementById('view');
+const out = document.getElementById('out');
+const timing = document.getElementById('timing');
+let last = null;
+
+function draw() {
+  if (!last) return;
+  renderMap(viewEl, last, { label: {{ (map.label_column|default('label'))|tojson }},
+                            colour: sel.value || '' });
+}
+
+async function run() {
+  timing.textContent = 'running\u2026';
+  try {
+    last = await ask(src.value);
+    /* The colour menu is built from the result, not from a config list: edit
+       the query, add a column, and it becomes a way of colouring the map. */
+    const wanted = sel.value;
+    sel.innerHTML = '<option value="">nothing</option>' +
+      last.cols.filter(c => !/wkt|geom/i.test(c))
+               .map(c => `<option value="${c}">${c}</option>`).join('');
+    sel.value = [...sel.options].some(o => o.value === wanted)
+      ? wanted : {{ (map.colour_column|default(''))|tojson }};
+    draw();
+    renderTable(out, last);
+    timing.textContent = `${last.total} rows`;
+  } catch (err) {
+    out.innerHTML = `<pre class="error">${err.message}</pre>`;
+    timing.textContent = '';
+  }
+}
+
+sel.addEventListener('change', draw);
+document.getElementById('run').addEventListener('click', run);
+onReady(run);
+boot();
+</script>
+</body>
+</html>

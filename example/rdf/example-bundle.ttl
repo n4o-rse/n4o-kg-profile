@@ -6,6 +6,7 @@
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix owl:   <http://www.w3.org/2002/07/owl#> .
 @prefix ex:    <https://ogham.link/id/> .
+@prefix geo:   <http://www.opengis.net/ont/geosparql#> .
 
 ### Ontologie ################################################################
 
@@ -22,11 +23,13 @@ ogham:hasReading a owl:ObjectProperty ; rdfs:label "has reading"@en .
 ex:stone1 a ogham:OghamStone ;
     rdfs:label "CIIC 1 Ballinrannig"@en ;
     ogham:within ex:townland1 ;
-    ogham:hasReading ex:reading1 .
+    ogham:hasReading ex:reading1 ;
+    geo:hasGeometry [ geo:asWKT "POINT(-10.35 52.16)"^^geo:wktLiteral ] .
 
 ex:stone2 a ogham:OghamStone ;
     rdfs:label "CIIC 2 Ballinrannig"@en ;
-    ogham:within ex:townland1 .
+    ogham:within ex:townland1 ;
+    geo:hasGeometry [ geo:asWKT "POINT(-10.34 52.17)"^^geo:wktLiteral ] .
 
 ex:inscription1 a ogham:Inscription ;
     rdfs:label "Inscription on CIIC 1"@en .
@@ -35,4 +38,5 @@ ex:reading1 a ogham:Reading ;
     rdfs:label "Reading by Macalister 1945"@en .
 
 ex:townland1 a ogham:Townland ;
-    rdfs:label "Ballinrannig"@en .
+    rdfs:label "Ballinrannig"@en ;
+    geo:hasGeometry [ geo:asWKT "POINT(-10.35 52.16)"^^geo:wktLiteral ] .

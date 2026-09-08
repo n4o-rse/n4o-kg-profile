@@ -42,7 +42,6 @@ CONTEXT_FILE = ROOT / "profile" / "context.jsonld"
 SHAPES_FILE = ROOT / "profile" / "shapes.ttl"
 DIST = ROOT / "dist"
 QUERIES_YAML = ROOT / "queries.yaml"
-RQ_DIR = ROOT / "docs" / "downloads" / "queries"
 
 CONTEXT_URI = "https://w3id.org/nfdi4objects/profile/v0.1/context.jsonld"
 
@@ -447,27 +446,37 @@ def write_queries(doc: dict) -> None:
         },
         "prefixes": prefixes,
         "queries": [
-            {
+            {k: v for k, v in {
                 "id": q["id"],
                 "title": pick(q.get("title")),
                 "intro": pick(q.get("intro")),
+                # Presentational, so it never reaches RDF — but it does have to
+                # reach build_sparql.py, which reads this file and not the YAML.
+                "view": q.get("view"),
+                "view_columns": q.get("view_columns"),
                 "sparql": q["sparql"].strip() + "\n",
-            }
+            }.items() if v is not None}
             for q in queries
         ],
     }
+    map_cfg = doc.get("map")
+    if map_cfg:
+        out["map"] = {
+            "title": pick(map_cfg.get("title")),
+            "intro": pick(map_cfg.get("intro")),
+            "label_column": map_cfg.get("label_column", "label"),
+            "colour_column": map_cfg.get("colour_column", ""),
+            "sparql": with_prefixes(map_cfg["sparql"], prefixes),
+        }
+
     QUERIES_YAML.write_text(
         yaml.safe_dump(out, allow_unicode=True, sort_keys=False, width=100),
         encoding="utf-8",
     )
     print(f"  → {QUERIES_YAML.name} ({len(queries)} queries)")
 
-    RQ_DIR.mkdir(parents=True, exist_ok=True)
-    for q in queries:
-        (RQ_DIR / f"{q['id']}.rq").write_text(
-            with_prefixes(q["sparql"], prefixes), encoding="utf-8"
-        )
-    print(f"  → docs/downloads/queries/*.rq")
+    # The .rq files are written by build_sparql.py, next to the pages that
+    # link them, so that a renamed query cannot leave a stale file behind.
 
 
 def verify_queries(doc: dict, root: Path, alignment: Graph) -> bool:

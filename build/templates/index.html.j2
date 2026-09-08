@@ -10,7 +10,8 @@
 <div class="container">
   <nav class="nav">
     <a href="index.html" class="active">Collection</a>
-    <a href="sparql.html">Query</a>
+    <a href="query/index.html">Queries</a>
+    <a href="map.html">Map</a>
   </nav>
 
   <header class="page-head">
@@ -57,6 +58,7 @@
       {% for d in c.distributions %}
       <li><a href="{{ d.url }}">{{ d.title or d.url }}</a></li>
       {% endfor %}
+      <li><a href="query/">Example queries</a>{% if has_map %} &middot; <a href="map.html">map</a>{% endif %}</li>
       <li><a href="metadata.ttl">Metadata (Turtle)</a> &middot;
           <a href="metadata.jsonld">JSON-LD</a></li>
       <li><a href="n4o-collection.ttl">N4O KG registration record</a></li>
@@ -73,7 +75,7 @@
 
   <footer class="page-foot">
     <p>
-      <a href="sparql.html">Query this collection</a> in your browser.
+      <a href="query/">Query this collection</a> in your browser.
       {% if c.landing_page %}
       Source repository: <a href="{{ c.landing_page }}">{{ c.landing_page }}</a>.
       {% endif %}

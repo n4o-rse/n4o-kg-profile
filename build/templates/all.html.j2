@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+{% include "_head.html.j2" %}
+<title>All queries &mdash; {{ page.title|default('queries') }}</title>
+</head>
+<body>
+<div class="container">
+  <nav class="nav">
+    <a href="../index.html">Collection</a>
+    <a href="index.html">Queries</a>
+    <a href="../map.html">Map</a>
+  </nav>
+
+  <header class="page-head">
+    <h1>{{ page.title|default('Query this collection') }}</h1>
+    {% if page.intro %}<p class="intro">{{ page.intro }}</p>{% endif %}
+    <p class="note">
+      Every query on one page. One at a time, with its own address, is in
+      <a href="index.html">the catalogue</a>.
+    </p>
+  </header>
+
+{% include "_status.html.j2" %}
+
+{% for q in queries %}
+  <section class="query" id="q-{{ q.id }}">
+    <h2>{{ loop.index }}. {{ q.title }}</h2>
+    {% if q.intro %}<p class="intro">{{ q.intro }}</p>{% endif %}
+    <textarea class="sparql" id="src-{{ q.id }}" spellcheck="false" rows="{{ q.rows }}">{{ q.sparql }}</textarea>
+    <div class="query-bar">
+      <button class="run" data-q="{{ q.id }}"{% if engine == 'pyodide' %} disabled{% endif %}>Run</button>
+      <button class="reset" data-q="{{ q.id }}">Reset</button>
+      <a class="rq" href="{{ q.id }}.html">own page</a>
+      <span class="timing" id="time-{{ q.id }}"></span>
+    </div>
+    <div class="view" id="view-{{ q.id }}"></div>
+    <div class="result" id="out-{{ q.id }}"></div>
+  </section>
+{% endfor %}
+
+  <footer class="page-foot">
+    <p>
+      Generated from <code>queries.yaml</code>, so this page, the individual
+      pages and the <code>.rq</code> files cannot drift apart.
+    </p>
+  </footer>
+</div>
+
+<script type="module">
+import { boot, ask, renderTable, hasGeometry, renderMap, VIEWS } from './runner.js';
+
+const QUERIES = {{ queries_json }};
+const SPEC    = {{ views_json }};
+
+async function run(id) {
+  const btn = document.querySelector(`button.run[data-q="${id}"]`);
+  const out = document.getElementById('out-' + id);
+  const viewEl = document.getElementById('view-' + id);
+  const timing = document.getElementById('time-' + id);
+  btn.disabled = true;
+  timing.textContent = 'running\u2026';
+  out.innerHTML = ''; viewEl.innerHTML = '';
+  const t0 = performance.now();
+  try {
+    const data = await ask(document.getElementById('src-' + id).value);
+    const spec = SPEC[id];
+    if (spec.view !== 'table' && VIEWS[spec.view]) VIEWS[spec.view](viewEl, data, spec.cols);
+    else if (hasGeometry(data)) renderMap(viewEl, data, spec.cols);
+    renderTable(out, data);
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    timing.textContent = data.n ? `${dt}s over ${data.n} triples` : `${dt}s`;
+  } catch (err) {
+    out.innerHTML = `<pre class="error">${err.message}</pre>`;
+    timing.textContent = '';
+  }
+  btn.disabled = false;
+}
+
+document.querySelectorAll('button.run').forEach(b =>
+  b.addEventListener('click', () => run(b.dataset.q)));
+document.querySelectorAll('button.reset').forEach(b =>
+  b.addEventListener('click', () => {
+    const id = b.dataset.q;
+    document.getElementById('src-' + id).value = QUERIES[id];
+    document.getElementById('out-' + id).innerHTML = '';
+    document.getElementById('view-' + id).innerHTML = '';
+    document.getElementById('time-' + id).textContent = '';
+  }));
+boot();
+</script>
+</body>
+</html>

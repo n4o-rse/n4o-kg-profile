@@ -102,8 +102,11 @@ collection repository.
 | `dist/crm-alignment.ttl` | `rdfs:subClassOf` / `subPropertyOf` to CIDOC CRM, loadable on its own |
 | `queries.yaml` | the example queries, in the format `build_sparql.py` reads |
 | `docs/index.html` | landing page: the four facts, the files, the measured graph size |
-| `docs/sparql.html` | the queries, editable and runnable in the browser |
-| `docs/downloads/queries/*.rq` | the same queries as plain files |
+| `docs/query/index.html` | the catalogue of example queries |
+| `docs/query/<id>.html` | one page per query, editable and runnable in the browser |
+| `docs/query/all.html` | all of them on one page |
+| `docs/query/rq/*.rq` | the same queries as plain files |
+| `docs/map.html` | every located thing in the graph, on one map |
 
 ---
 
@@ -180,6 +183,48 @@ Or call the action directly inside your own job:
   occurrence in the bundle are reported too — the usual symptom of a typo.
 
 ---
+
+## Views
+
+A query page always shows a table. A query may also declare a `view`, drawn
+**above** the table — above, never instead. These queries are meant to be
+edited, and an edit that drops the column a view needs would otherwise leave a
+blank panel with no explanation. The view says what is missing; the table
+stays.
+
+| `view` | reads | for |
+|---|---|---|
+| `table` | — | the default |
+| `map` | any `POINT(lon lat)` column; optional `label`, `colour` | distributions |
+| `intervals` | `from`, `to`, `label` | anything on a time axis |
+| `barchart` | `category`, `value` | counts per group |
+| `scatter` | `x`, `y`, `label` | two measures against each other |
+
+```yaml
+queries:
+  - id: culture-chronology
+    view: intervals
+    view_columns: {from: from, to: to, label: culture}
+```
+
+A view naming a column the query does not return fails at build time, with the
+query's id attached, rather than leaving a blank panel in somebody's browser.
+
+**The map needs no declaration.** Any result carrying a `POINT(lon lat)` column
+is drawn on a map whether or not the query asked for one — a result with
+coordinates is worth seeing on a map, and the reader should not have to know
+about a config key to get one. `view: map` only adds control over which column
+colours the markers.
+
+A `map:` block in `metadata.yaml` additionally produces `docs/map.html`: one
+map of the whole collection, from the same graph as the query pages, so it
+cannot show a different corpus than they do. Its colour menu is built from
+whatever columns its query returns, so editing the query is how you re-colour
+the map.
+
+Leaflet and OpenStreetMap tiles are a second network dependency on a page whose
+argument is that an archived copy stays queryable. Tables and the SVG charts
+work offline; a map does not. That is why the table always stays.
 
 ## Large graphs
 
