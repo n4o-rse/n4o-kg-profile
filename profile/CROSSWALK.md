@@ -92,8 +92,11 @@ Plus `notation` (`skos:notation`), `isPartOf`, and the type
 | `…file` | — (existence check only) | — | — | **O** |
 | `…source` | — (fetched once at build time) | — | — | **O** |
 | — | `spdx:checksum` on the downloadURL | — | — | computed |
-| `model.classes[]` | `void:classPartition` + `rdfs:subClassOf crm:…` | — | — | **R** |
-| `model.properties[]` | `void:propertyPartition` + `rdfs:subPropertyOf crm:…` | — | — | **R** |
+| — | `void:classPartition` + `void:entities` + `n4op:crmAnchor` | — | — | measured |
+| — | `void:propertyPartition` + `void:triples` | — | — | measured |
+| `model.classes[]` | `rdfs:subClassOf crm:…` — supplement only | — | — | **O** |
+| `model.properties[]` | `rdfs:subPropertyOf crm:…` — supplement only | — | — | **O** |
+| `model.external[]` | — (namespaces exempt from the anchoring report) | — | — | **O** |
 | `queries[]` | `n4op:exampleQuery` → `sh:SPARQLSelectExecutable` | — | — | **R** |
 | `…sparql` | `sh:select` (with prefixes injected) | — | — | **M**² |
 | `prefixes` | — (injected into every query) | — | — | — |
@@ -104,17 +107,29 @@ Plus `notation` (`skos:notation`), `isPartOf`, and the type
 
 ## 5. Modelling decisions
 
-- **Counted, not typed in.** Class and property counts are measured from
-  `model.bundle` and written as `void:classPartition` / `void:propertyPartition`.
-  The YAML carries only the CRM alignment, because that is a decision and not a
-  measurement. Classes occurring in the bundle without an alignment are
-  reported; `owl:`, `rdfs:`, `rdf:` and `skos:` are exempt as the ontology's own
-  meta level. Conversely, an alignment with no occurrence in the bundle is
-  reported too — the usual symptom of a typo in an IRI.
+- **Counted, not typed in — including the alignment.** Class and property counts
+  come from `model.bundle`, and so does the CIDOC CRM anchoring: the build
+  follows `rdfs:subClassOf` transitively and records what each class reaches as
+  `n4op:crmAnchor` on its `void:classPartition`. Transitively, because that is
+  how a query reaches it — a class anchored through an intermediate superclass
+  is anchored, and reporting it as a gap sends somebody hunting for a problem
+  that is not there.
 
-- **The CRM alignment is its own artefact.** `dist/crm-alignment.ttl` can be
-  loaded alongside the bundle. It is deliberately not *in* the bundle: the
-  alignment belongs to the profile, not to the domain ontology.
+- **The bundle wins over the YAML.** `model.classes` is a *supplement*, for a
+  class the bundle does not anchor itself. Where both speak, they are compared:
+  a disagreement is printed in full and, under `strict`, fails the build. It is
+  never merged, because one of the two is wrong and only a person knows which —
+  guessing publishes the wrong one under a checksum. The alignment belongs
+  upstream, in the ontology; this profile measures it.
+
+- **Namespaces a collection reuses but does not own** — PROV-O, FOAF, GeoSPARQL
+  and whatever `model.external` adds — are counted separately and never reported
+  as gaps. Anchoring them to CIDOC CRM would be asserting something about
+  somebody else's ontology.
+
+- **`dist/crm-alignment.ttl` is written only when there is a supplement.** A
+  bundle that anchors itself needs no companion file, and an empty one left over
+  from an earlier run would be shipped and cited.
 
 - **Example queries are SHACL executables.** `sh:SPARQLSelectExecutable` with
   `sh:select` is the only standard way to carry a SPARQL query in RDF. Prefixes
@@ -126,8 +141,8 @@ Plus `notation` (`skos:notation`), `isPartOf`, and the type
   check runs against the bundle **plus** the alignment, because that is the
   state the KG is in after import.
 
-- **Four minted terms, no more** (`profile/profile.ttl`): `n4op:exampleQuery`
-  and the three distribution roles.
+- **Five minted terms, no more** (`profile/profile.ttl`): `n4op:exampleQuery`,
+  `n4op:crmAnchor` and the three distribution roles.
 
 - **Blank nodes are canonicalised (URDNA2015)** and prefixes bound explicitly.
   A diff after an unchanged rebuild means something is wrong.

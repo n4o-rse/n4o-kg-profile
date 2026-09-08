@@ -120,12 +120,18 @@ def main() -> None:
         )
         print("  → docs/index.html")
 
-    # The generated RDF belongs next to the page it describes.
+    # The generated RDF belongs next to the page it describes. A file that is no
+    # longer in dist/ is removed here too: make_metadata.py drops
+    # crm-alignment.ttl when the bundle anchors itself, and a stale copy left in
+    # docs/ would go on being served and cited from the published site.
     for name in ("metadata.ttl", "metadata.jsonld", "n4o-collection.ttl",
                  "crm-alignment.ttl"):
-        src = ROOT / "dist" / name
+        src, dst = ROOT / "dist" / name, DOCS / name
         if src.is_file():
-            shutil.copyfile(src, DOCS / name)
+            shutil.copyfile(src, dst)
+        elif dst.is_file():
+            dst.unlink()
+            print(f"  - docs/{name} removed (no longer in dist/)")
 
     style = TEMPLATES / "style.css"
     if style.is_file():

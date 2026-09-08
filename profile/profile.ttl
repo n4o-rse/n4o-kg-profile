@@ -15,7 +15,13 @@ n4op: a owl:Ontology ;
     rdfs:comment "Application profile for describing a collection published into the N4O Knowledge Graph."@en ;
     owl:versionInfo "0.1" .
 
-### One property #############################################################
+### Two properties ###########################################################
+
+n4op:crmAnchor a owl:ObjectProperty ;
+    rdfs:label "CIDOC CRM anchor"@en ;
+    rdfs:comment "The CIDOC CRM class that the class of this VoID partition reaches through rdfs:subClassOf. Measured from the bundle, never asserted by hand, so that the metadata cannot disagree with the graph it describes."@en ;
+    rdfs:domain <http://rdfs.org/ns/void#Dataset> ;
+    rdfs:range <http://www.w3.org/2000/01/rdf-schema#Class> .
 
 n4op:exampleQuery a owl:ObjectProperty ;
     rdfs:label "example query"@en ;

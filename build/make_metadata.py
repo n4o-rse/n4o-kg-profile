@@ -182,6 +182,8 @@ def to_rdf(doc: dict, context_file: Path) -> Graph:
     return g
 
 
+# The ontology's own meta level. A class here is not a domain class and is not
+# expected to sit under CIDOC CRM.
 META_NAMESPACES = (
     "http://www.w3.org/2002/07/owl#",
     "http://www.w3.org/2000/01/rdf-schema#",
@@ -189,10 +191,59 @@ META_NAMESPACES = (
     "http://www.w3.org/2004/02/skos/core#",
 )
 
+# Vocabularies a collection reuses but does not own. Anchoring them to CIDOC CRM
+# would be asserting something about somebody else's ontology, so their absence
+# from the alignment is reported as a fact, not as a gap to be closed. Extend
+# per collection through `model.external` in metadata.yaml.
+EXTERNAL_NAMESPACES = (
+    "http://www.w3.org/ns/prov#",
+    "http://xmlns.com/foaf/0.1/",
+    "http://www.opengis.net/ont/",
+    "http://www.w3.org/2006/time#",
+    "http://purl.org/dc/terms/",
+    "http://www.w3.org/ns/dcat#",
+)
+
+CRM_NAMESPACES = (
+    "http://www.cidoc-crm.org/cidoc-crm/",
+    "http://www.cidoc-crm.org/extensions/",
+)
+
+
+def crm_anchor(data: Graph, cls: URIRef, seen: set | None = None) -> URIRef | None:
+    """Follow rdfs:subClassOf transitively and return the CIDOC CRM class the
+    given class reaches, or None.
+
+    Transitively, because that is how a query reaches it: a collection that says
+    Entdeckung -> bb5kbc:Event -> crm:E5_Event is anchored, and answering
+    `?s a/rdfs:subClassOf* crm:E5_Event` proves it. Looking only one step up
+    reports such a class as unaligned and sends somebody hunting for a problem
+    that is not there.
+    """
+    seen = seen or set()
+    if cls in seen:
+        return None
+    seen.add(cls)
+    if str(cls).startswith(CRM_NAMESPACES):
+        return cls
+    for parent in data.objects(cls, RDFS.subClassOf):
+        if isinstance(parent, URIRef):
+            found = crm_anchor(data, parent, seen)
+            if found is not None:
+                return found
+    return None
+
 
 def add_model_statistics(g: Graph, subject: URIRef, model: dict, root: Path) -> Graph:
-    """Count void:classPartition / void:propertyPartition from the bundle and add
-    the CRM alignment as rdfs:subClassOf / rdfs:subPropertyOf."""
+    """Measure the bundle: class and property partitions, and the CIDOC CRM
+    anchoring the bundle already carries.
+
+    The alignment is read out of the bundle rather than restated in
+    metadata.yaml. A `crm:` entry under model.classes is a *supplement* for a
+    class the bundle does not anchor itself; if the bundle does anchor it, the
+    bundle wins and a disagreement is reported, because two places asserting the
+    same alignment is exactly how the two come to disagree.
+    """
     alignment = Graph()
     if not model:
         return alignment
@@ -207,6 +258,8 @@ def add_model_statistics(g: Graph, subject: URIRef, model: dict, root: Path) -> 
     STATS["triples"] = len(data)
     print(f"  bundle: {bundle_path.name} — {len(data)} triples")
 
+    external = EXTERNAL_NAMESPACES + tuple(model.get("external") or ())
+
     class_counts: dict[URIRef, int] = {}
     for _, _, o in data.triples((None, RDF.type, None)):
         if isinstance(o, URIRef):
@@ -216,43 +269,84 @@ def add_model_statistics(g: Graph, subject: URIRef, model: dict, root: Path) -> 
     for _, p, _ in data:
         prop_counts[p] = prop_counts.get(p, 0) + 1
 
-    crm_class = {URIRef(e["class"]): URIRef(e["crm"])
-                 for e in model.get("classes", []) if e.get("crm")}
-    crm_prop = {URIRef(e["property"]): URIRef(e["crm"])
-                for e in model.get("properties", []) if e.get("crm")}
+    declared_class = {URIRef(e["class"]): URIRef(e["crm"])
+                      for e in model.get("classes", []) if e.get("crm")}
+    declared_prop = {URIRef(e["property"]): URIRef(e["crm"])
+                     for e in model.get("properties", []) if e.get("crm")}
+
+    measured: dict[URIRef, URIRef] = {}
+    conflicts: list[tuple[URIRef, URIRef, URIRef]] = []
+    supplements: list[URIRef] = []
+
+    for cls in class_counts:
+        anchor = crm_anchor(data, cls)
+        if anchor is not None:
+            measured[cls] = anchor
+            if cls in declared_class and declared_class[cls] != anchor:
+                conflicts.append((cls, anchor, declared_class[cls]))
+        elif cls in declared_class:
+            measured[cls] = declared_class[cls]
+            supplements.append(cls)
+            alignment.add((cls, RDFS.subClassOf, declared_class[cls]))
 
     for cls, count in sorted(class_counts.items(), key=lambda kv: (-kv[1], str(kv[0]))):
         part = BNode()
         g.add((subject, VOID.classPartition, part))
         g.add((part, VOID["class"], cls))
         g.add((part, VOID.entities, Literal(count, datatype=XSD.integer)))
-        if cls in crm_class:
-            alignment.add((cls, RDFS.subClassOf, crm_class[cls]))
+        # The anchor travels with the count, so a consumer of the metadata alone
+        # can see what this collection is queryable as.
+        if cls in measured:
+            g.add((part, N4OP.crmAnchor, measured[cls]))
 
     for prop, count in sorted(prop_counts.items(), key=lambda kv: (-kv[1], str(kv[0]))):
         part = BNode()
         g.add((subject, VOID.propertyPartition, part))
         g.add((part, VOID.property, prop))
         g.add((part, VOID.triples, Literal(count, datatype=XSD.integer)))
-        if prop in crm_prop:
-            alignment.add((prop, RDFS.subPropertyOf, crm_prop[prop]))
+        if prop in declared_prop and (prop, RDFS.subPropertyOf, declared_prop[prop]) not in data:
+            alignment.add((prop, RDFS.subPropertyOf, declared_prop[prop]))
 
-    # Do not guess: report missing alignments rather than inventing them.
-    # owl:/rdfs:/rdf:/skos: are the ontology's own meta level and are exempt.
-    missing = [c for c in class_counts
-               if c not in crm_class and not str(c).startswith(META_NAMESPACES)]
-    if missing:
-        print(f"  ! {len(missing)} class(es) with no CRM alignment:")
-        for c in sorted(missing, key=str)[:10]:
-            print(f"      {c}")
+    domain = [c for c in class_counts
+              if not str(c).startswith(META_NAMESPACES)
+              and not str(c).startswith(external)
+              and not str(c).startswith(CRM_NAMESPACES)]
+    unaligned = [c for c in domain if c not in measured]
+    reused = [c for c in class_counts if str(c).startswith(external)]
+
     STATS["classes"] = len(class_counts)
     STATS["properties"] = len(prop_counts)
-    STATS["aligned"] = len([c for c in class_counts if c in crm_class])
-    stale = [c for c in crm_class if c not in class_counts]
+    STATS["aligned"] = len([c for c in domain if c in measured])
+    STATS["domain"] = len(domain)
+    STATS["external"] = len(reused)
+
+    print(f"  CIDOC CRM: {STATS['aligned']} of {len(domain)} domain class(es) anchored"
+          + (f", {len(supplements)} from metadata.yaml" if supplements else "")
+          + f"; {len(reused)} reused from external vocabularies")
+
+    if unaligned:
+        print(f"  ! {len(unaligned)} domain class(es) with no CRM anchor:")
+        for c in sorted(unaligned, key=str):
+            print(f"      {class_counts[c]:6d}  {c}")
+
+    if conflicts:
+        # Never silently merge. One of the two is wrong and only a human knows
+        # which; guessing here would publish the wrong one under a checksum.
+        print(f"  !! {len(conflicts)} alignment(s) in metadata.yaml disagree with the bundle:")
+        for cls, anchor, declared in conflicts:
+            print(f"      {cls}")
+            print(f"        bundle:        {anchor}")
+            print(f"        metadata.yaml: {declared}")
+        print("      The bundle wins. Remove the entry, or fix the bundle upstream.")
+        if STRICT:
+            raise SystemExit(1)
+
+    stale = [c for c in declared_class if c not in class_counts]
     if stale:
-        print(f"  ! {len(stale)} CRM alignment(s) with no occurrence in the bundle:")
+        print(f"  ! {len(stale)} declared alignment(s) with no occurrence in the bundle:")
         for c in sorted(stale, key=str):
             print(f"      {c}")
+
     g += alignment
     return alignment
 
@@ -347,6 +441,9 @@ def write_queries(doc: dict) -> None:
             "classes": STATS.get("classes"),
             "properties": STATS.get("properties"),
             "aligned": STATS.get("aligned"),
+            "domain": STATS.get("domain"),
+            "external": STATS.get("external"),
+            "alignment_file": (DIST / "crm-alignment.ttl").is_file(),
         },
         "prefixes": prefixes,
         "queries": [
@@ -443,11 +540,17 @@ def main() -> None:
         )
         print("  → dist/n4o-collection.ttl")
 
+    alignment_file = DIST / "crm-alignment.ttl"
     if len(alignment):
-        (DIST / "crm-alignment.ttl").write_bytes(
+        alignment_file.write_bytes(
             finalise(alignment).serialize(format="turtle", encoding="utf-8")
         )
-        print(f"  → dist/crm-alignment.ttl ({len(alignment)} alignments)")
+        print(f"  → dist/crm-alignment.ttl ({len(alignment)} supplement(s))")
+    elif alignment_file.exists():
+        # The bundle carries its own anchoring, so there is nothing to add. An
+        # empty file left behind from an earlier run would be shipped and cited.
+        alignment_file.unlink()
+        print("  - dist/crm-alignment.ttl removed (bundle anchors itself)")
 
     if WRITE_QUERIES:
         write_queries(doc)

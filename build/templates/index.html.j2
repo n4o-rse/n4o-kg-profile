@@ -44,7 +44,10 @@
     {% if c.triples %}
     <dt>Graph</dt>
     <dd>{{ '{:,}'.format(c.triples) }} triples &middot; {{ c.classes }} classes
-        ({{ c.aligned }} aligned to CIDOC CRM) &middot; {{ c.properties }} properties</dd>
+        &middot; {{ c.properties }} properties</dd>
+    <dt>CIDOC CRM</dt>
+    <dd>{{ c.aligned }} of {{ c.domain }} domain classes anchored{% if c.external %},
+        {{ c.external }} reused from external vocabularies{% endif %}</dd>
     {% endif %}
   </dl>
 
@@ -57,7 +60,9 @@
       <li><a href="metadata.ttl">Metadata (Turtle)</a> &middot;
           <a href="metadata.jsonld">JSON-LD</a></li>
       <li><a href="n4o-collection.ttl">N4O KG registration record</a></li>
-      <li><a href="crm-alignment.ttl">CIDOC CRM alignment</a></li>
+      {% if c.alignment_file %}
+      <li><a href="crm-alignment.ttl">CIDOC CRM alignment (supplement)</a></li>
+      {% endif %}
     </ul>
     <p class="note">
       All of the above is generated from a single <code>metadata.yaml</code> by
