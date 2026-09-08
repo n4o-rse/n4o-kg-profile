@@ -72,7 +72,11 @@ async function run() {
     sel.innerHTML = '<option value="">nothing</option>' +
       last.cols.filter(c => !/wkt|geom/i.test(c))
                .map(c => `<option value="${c}">${c}</option>`).join('');
-    sel.value = [...sel.options].some(o => o.value === wanted)
+    /* `wanted` is empty on the first run, and the rebuilt list always contains
+       an option with an empty value ("nothing") — so without the `wanted &&`
+       the empty starting value matched itself and the configured default never
+       applied. Only an actual choice by the reader is preserved. */
+    sel.value = wanted && [...sel.options].some(o => o.value === wanted)
       ? wanted : {{ (map.colour_column|default(''))|tojson }};
     draw();
     renderTable(out, last);

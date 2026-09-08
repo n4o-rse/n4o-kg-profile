@@ -157,9 +157,10 @@ def sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def add_checksums(g: Graph, doc: dict, root: Path) -> None:
+def add_checksums(g: Graph, doc: dict, root: Path) -> set[str]:
     """One checksum per distribution. It is the only statement that later proves
     which version was actually loaded into the graph."""
+    sums = set()
     for dist in doc.get("distributions", []):
         rel, url = dist.get("file"), dist.get("downloadURL")
         if not (rel and url):
@@ -167,10 +168,56 @@ def add_checksums(g: Graph, doc: dict, root: Path) -> None:
         path = root / rel
         if not path.is_file():
             continue
+        digest = sha256(path)
+        sums.add(digest)
         node = BNode()
         g.add((URIRef(url), SPDX.checksum, node))
         g.add((node, SPDX.algorithm, SPDX.checksumAlgorithm_sha256))
-        g.add((node, SPDX.checksumValue, Literal(sha256(path))))
+        g.add((node, SPDX.checksumValue, Literal(digest)))
+    return sums
+
+
+def previous_state(dist: Path) -> tuple[set[str], str | None, str | None]:
+    """Checksums, dct:modified and dcat:version from the last run's output.
+
+    The previous metadata is the only record of what the last build described,
+    and it is already in the repository — so the comparison needs no extra
+    state file that could go stale on its own.
+    """
+    old = dist / "metadata.ttl"
+    if not old.is_file():
+        return set(), None, None
+    g = Graph()
+    try:
+        g.parse(old, format="turtle")
+    except Exception:  # noqa: BLE001 — a corrupt previous file is not fatal here
+        return set(), None, None
+    sums = {str(o) for o in g.objects(None, SPDX.checksumValue)}
+    modified = next((str(o) for o in g.objects(None, DCT.modified)), None)
+    version = next((str(o) for o in g.objects(None, DCAT.version)), None)
+    return sums, modified, version
+
+
+def check_freshness(doc: dict, new_sums: set[str], before: tuple) -> None:
+    """A changed bundle with unchanged `modified`/`version` is a metadata error.
+
+    Reported, never corrected: writing today's date automatically would make the
+    output depend on the day it was built, and the byte-reproducibility that
+    every other guarantee here rests on would be gone.
+    """
+    old_sums, old_modified, old_version = before
+    if not old_sums or old_sums == new_sums:
+        return
+    stale = []
+    if old_modified and str(doc.get("modified", "")) == old_modified:
+        stale.append(f"modified: {old_modified}")
+    if old_version and str(doc.get("version", "")) == old_version:
+        stale.append(f"version: {old_version}")
+    if stale:
+        print("  ! the bundle changed since the last build, but "
+              + " and ".join(stale) + " did not.")
+        print("    Update them in metadata.yaml, or the published record will "
+              "describe a version it no longer carries.")
 
 
 def to_rdf(doc: dict, context_file: Path) -> Graph:
@@ -528,7 +575,9 @@ def main() -> None:
     alignment = Graph()
     if COUNT_FROM_BUNDLE:
         alignment = add_model_statistics(graph, URIRef(doc["id"]), doc.get("model"), ROOT)
-    add_checksums(graph, doc, ROOT)
+    before = previous_state(DIST)
+    new_sums = add_checksums(graph, doc, ROOT)
+    check_freshness(doc, new_sums, before)
     graph = finalise(graph)
     print(f"  RDF: {len(graph)} triples")
 
