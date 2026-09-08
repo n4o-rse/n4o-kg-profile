@@ -34,7 +34,11 @@
       <a class="rq" href="{{ q.id }}.html">own page</a>
       <span class="timing" id="time-{{ q.id }}"></span>
     </div>
+{% if q.controls %}
+    <div class="controls" data-controls="{{ q.id }}"></div>
+{% endif %}
     <div class="view" id="view-{{ q.id }}"></div>
+    <div class="downloads" id="dl-{{ q.id }}"></div>
     <div class="result" id="out-{{ q.id }}"></div>
   </section>
 {% endfor %}
@@ -48,10 +52,44 @@
 </div>
 
 <script type="module">
-import { boot, ask, renderTable, hasGeometry, renderMap, VIEWS } from './runner.js';
+import { boot, ask, renderTable, hasGeometry, renderMap, VIEWS,
+         readControl, applyControls, offerDownloads } from './runner.js';
 
 const QUERIES = {{ queries_json }};
 const SPEC    = {{ views_json }};
+
+function buildControls(id) {
+  const host = document.querySelector(`[data-controls="${id}"]`);
+  const defs = SPEC[id].controls || [];
+  if (!host || !defs.length) return;
+  const src = document.getElementById('src-' + id);
+  host.innerHTML = defs.map(c => {
+    const v = readControl(src.value, c.var);
+    return `<label class="ctl"><span>${c.label}</span>` +
+      `<input type="range" data-var="${c.var}" min="${c.min}" max="${c.max}" ` +
+      `step="${c.step}" value="${v}"><output data-out="${c.var}">${v}</output></label>`;
+  }).join('');
+  host.querySelectorAll('input[type=range]').forEach(i => {
+    i.addEventListener('input', () => {
+      host.querySelector(`[data-out="${i.dataset.var}"]`).textContent = i.value;
+    });
+    i.addEventListener('change', () => { writeBack(id); run(id); });
+  });
+}
+
+/* Write the slider values back into the query itself, so that what runs is
+   what the reader can see and copy. */
+function writeBack(id) {
+  const src = document.getElementById('src-' + id);
+  src.value = applyControls(src.value, controlValues(id));
+}
+
+function controlValues(id) {
+  const host = document.querySelector(`[data-controls="${id}"]`);
+  if (!host) return [];
+  return [...host.querySelectorAll('input[type=range]')]
+    .map(i => ({ var: i.dataset.var, value: i.value }));
+}
 
 async function run(id) {
   const btn = document.querySelector(`button.run[data-q="${id}"]`);
@@ -68,6 +106,7 @@ async function run(id) {
     if (spec.view !== 'table' && VIEWS[spec.view]) VIEWS[spec.view](viewEl, data, spec.cols);
     else if (hasGeometry(data)) renderMap(viewEl, data, spec.cols);
     renderTable(out, data);
+    offerDownloads(document.getElementById('dl-' + id), data, id);
     const dt = ((performance.now() - t0) / 1000).toFixed(1);
     timing.textContent = data.n ? `${dt}s over ${data.n} triples` : `${dt}s`;
   } catch (err) {
@@ -86,7 +125,10 @@ document.querySelectorAll('button.reset').forEach(b =>
     document.getElementById('out-' + id).innerHTML = '';
     document.getElementById('view-' + id).innerHTML = '';
     document.getElementById('time-' + id).textContent = '';
+    document.getElementById('dl-' + id).innerHTML = '';
+    buildControls(id);
   }));
+Object.keys(SPEC).forEach(buildControls);
 boot();
 </script>
 </body>

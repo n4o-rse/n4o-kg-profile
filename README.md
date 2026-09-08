@@ -75,12 +75,22 @@ collection repository.
        branches: [main]
      workflow_dispatch:
 
+   permissions:
+     contents: write
+     pages: write
+     id-token: write
+
    jobs:
      collection:
        uses: n4o-rse/n4o-kg-profile/.github/workflows/collection.yml@v1
        with:
          strict: true
    ```
+
+   The `permissions:` block is not optional. A reusable workflow cannot grant
+   itself more than its caller has, and most repositories issue a read-only
+   token by default, so leaving it out fails the run before it starts:
+   *requesting 'id-token: write', but is only allowed 'id-token: none'*.
 
 4. **Enable Pages**: *Settings → Pages → Source: GitHub Actions*. Nothing else;
    the workflow uploads `docs/` itself.
@@ -209,6 +219,40 @@ queries:
 
 A view naming a column the query does not return fails at build time, with the
 query's id attached, rather than leaving a blank panel in somebody's browser.
+
+## Sliders
+
+A query can expose one or more numbers as sliders. The control does not
+template the query text; it rewrites a `VALUES` clause the query already
+carries, so the query stays valid SPARQL — the `.rq` file runs unchanged
+outside the browser, and the build can execute it to check that it returns
+rows.
+
+```yaml
+  - id: time-slice
+    controls:
+      - {var: from, label: "From (BC)", min: -8000, max: -3800, step: 50}
+      - {var: to,   label: "To (BC)",   min: -8000, max: -3800, step: 50}
+    sparql: |
+      SELECT ?label ?wkt WHERE {
+        VALUES ?from { -4700 }
+        VALUES ?to   { -4500 }
+        ...
+        FILTER(?st <= ?to && ?en >= ?from)
+      }
+```
+
+Moving a slider re-runs the query, so on a `view: map` query the distribution
+moves with it. The starting position is read from the `VALUES` clause rather
+than from the config, so editing the query and pressing Reset keeps the two in
+step. A control naming a variable with no `VALUES ?var { … }` clause fails at
+build time — a slider that silently does nothing is worse than no slider.
+
+## Downloading a result
+
+Every result offers a CSV, and a GeoJSON as well when it carries coordinates.
+Both are built in the browser from what is on screen, so a narrowed query
+exports the narrowed result.
 
 **The map needs no declaration.** Any result carrying a `POINT(lon lat)` column
 is drawn on a map whether or not the query asked for one — a result with

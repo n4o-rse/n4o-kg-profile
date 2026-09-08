@@ -158,6 +158,7 @@
     "map": null,
     "view": null,
     "view_columns": null,
+    "controls": null,
     "page": null
   }
 }

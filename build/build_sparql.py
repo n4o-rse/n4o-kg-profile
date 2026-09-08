@@ -58,7 +58,10 @@ LEAFLET_VERSION = "1.9.4"
 LEAFLET_SRI_JS = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
 LEAFLET_SRI_CSS = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
 
-MAX_ROWS = 500
+# The table shows this many rows and the map draws this many points. Set well
+# above any example query here, because a map that silently shows 500 of 540
+# sites is a worse answer than a slow one.
+MAX_ROWS = 2000
 MAX_LOCAL_MB = 5.0
 
 VIEW_LABELS = {
@@ -134,6 +137,31 @@ def query_view(q: dict) -> tuple[str, dict]:
                  f"that the '{view}' view does not use. It reads {sorted(cols)}.")
     cols.update(given)
     return view, cols
+
+
+def query_controls(q: dict) -> list[dict]:
+    """Slider definitions for one query, checked against its text.
+
+    A control edits a `VALUES ?var { n }` clause rather than templating the
+    query, so the query stays valid SPARQL: the .rq file runs unchanged, and
+    the build can execute it. A control whose clause is missing is a typo that
+    would leave a slider doing nothing, so it fails here with the id attached.
+    """
+    controls = q.get("controls") or []
+    out = []
+    for c in controls:
+        var = c.get("var")
+        if not var:
+            sys.exit(f"  !! query '{q['id']}' has a control without a `var`.")
+        needle = f"VALUES ?{var}"
+        if needle not in q["sparql"]:
+            sys.exit(f"  !! query '{q['id']}' declares a control for ?{var}, but "
+                     f"its SPARQL has no `{needle} {{ … }}` clause for the slider "
+                     f"to rewrite.")
+        out.append({"var": var, "label": c.get("label", var),
+                    "min": c.get("min"), "max": c.get("max"),
+                    "step": c.get("step", 1)})
+    return out
 
 
 def blurb(text: str, limit: int = 220) -> str:
@@ -233,6 +261,7 @@ def main() -> None:
         # the reader has to discover first.
         item["rows"] = max(8, item["sparql"].count("\n") + 3)
         item["view"], item["view_cols"] = view, cols
+        item["controls"] = query_controls(q)
         prepared.append(item)
         catalogue.append({
             "id": q["id"], "title": q["title"], "blurb": blurb(q.get("intro")),
@@ -244,6 +273,7 @@ def main() -> None:
     for item in prepared:
         (query_dir / f"{item['id']}.html").write_text(
             page_tpl.render(query=item, view=item["view"],
+                            controls_json=json.dumps(item["controls"]),
                             view_cols_json=json.dumps(item["view_cols"]),
                             query_json=json.dumps(item["sparql"], ensure_ascii=False),
                             page=cfg.get("page", {}), **common),
@@ -256,7 +286,8 @@ def main() -> None:
             queries_json=json.dumps({q["id"]: q["sparql"] for q in prepared},
                                     ensure_ascii=False),
             views_json=json.dumps({q["id"]: {"view": q["view"],
-                                             "cols": q["view_cols"]}
+                                             "cols": q["view_cols"],
+                                             "controls": q["controls"]}
                                    for q in prepared}),
             **common),
         encoding="utf-8")

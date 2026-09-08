@@ -165,6 +165,27 @@ queries:
         BIND(REPLACE(STR(?cls), "^.*[/#]", "") AS ?kind)
       }
 
+  - id: stones-by-name
+    controls:
+      - {var: minLen, label: Label at least, min: 1, max: 30, step: 1}
+    title:
+      en: Stones with a label of at least n characters
+      de: Steine mit einem Label ab n Zeichen
+    intro:
+      en: >-
+        A slider rewrites the VALUES clause in the query rather than templating
+        the query text, so the .rq file still runs unchanged outside the
+        browser. Move it and the query re-runs.
+      de: >-
+        Ein Schieberegler schreibt die VALUES-Klausel um, statt den Querytext zu
+        templaten — die .rq-Datei laeuft unveraendert weiter.
+    sparql: |
+      SELECT ?label WHERE {
+        VALUES ?minLen { 8 }
+        ?s a ogham:OghamStone ; rdfs:label ?label .
+        FILTER(STRLEN(STR(?label)) >= ?minLen)
+      } ORDER BY ?label
+
   - id: stones-via-crm
     title:
       en: Ogham stones via their CRM superclass

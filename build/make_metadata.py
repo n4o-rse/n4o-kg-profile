@@ -454,6 +454,7 @@ def write_queries(doc: dict) -> None:
                 # reach build_sparql.py, which reads this file and not the YAML.
                 "view": q.get("view"),
                 "view_columns": q.get("view_columns"),
+                "controls": q.get("controls"),
                 "sparql": q["sparql"].strip() + "\n",
             }.items() if v is not None}
             for q in queries

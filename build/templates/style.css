@@ -444,3 +444,43 @@ svg.chart .dotm {
   padding-left: 1.1rem;
   font-size: 0.82rem;
 }
+
+/* ---- query controls and downloads -------------------------------------- */
+label.ctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+label.ctl input[type="range"] {
+  width: 190px;
+  accent-color: var(--accent);
+}
+label.ctl output {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--ink);
+  min-width: 4.2rem;
+  text-align: right;
+}
+.downloads:empty {
+  display: none;
+}
+.downloads {
+  margin: 0.5rem 0 0;
+}
+.downloads button.dl {
+  font: inherit;
+  font-size: 0.8rem;
+  border: 1px solid var(--rule);
+  background: #fff;
+  color: var(--muted);
+  border-radius: 5px;
+  padding: 0.28rem 0.65rem;
+  cursor: pointer;
+}
+.downloads button.dl:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}

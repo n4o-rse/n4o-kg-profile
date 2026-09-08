@@ -7,6 +7,14 @@ const GRAPH    = {{ graph_json }};
 const ENGINE   = {{ engine|tojson }};
 const MAX_ROWS = {{ max_rows }};
 
+/* The graph sits at the site root, but the pages that import this module sit
+   at two different depths: docs/map.html and docs/query/<id>.html. Resolving
+   the URL against this module's own location instead of against the page makes
+   the depth irrelevant — an earlier version hard-coded "../" and the map, one
+   directory higher than the query pages, asked for a file above the site root
+   and got a 404. */
+const GRAPH_URL = new URL('../' + GRAPH.url, import.meta.url).href;
+
 let pyodide = null;
 const listeners = [];
 export function onReady(fn) { listeners.push(fn); }
@@ -41,7 +49,7 @@ import micropip
 await micropip.install("rdflib=={{ rdflib_version }}")
 `);
     setStatus('Loading the graph\u2026', 'busy');
-    pyodide.globals.set('_graph_url', GRAPH.page_url);
+    pyodide.globals.set('_graph_url', GRAPH_URL);
     await pyodide.runPythonAsync(`
 from pyodide.http import pyfetch
 from rdflib import Graph
@@ -69,7 +77,7 @@ n_base = len(base)
       e.innerHTML = `Graph loaded: <strong>${n}</strong> triples from ` +
         `<code>${esc(GRAPH.file)}</code>` +
         (GRAPH.megabytes ? ` (${GRAPH.megabytes} MB).` : '.') +
-        ` <a href="${esc(GRAPH.page_url)}">Download the Turtle file.</a>`;
+        ` <a href="${esc(GRAPH_URL)}">Download the Turtle file.</a>`;
     });
     setStatus('Ready \u2014 press Run, or edit the query first.', 'ok');
     document.querySelectorAll('button.run').forEach(b => (b.disabled = false));
@@ -107,6 +115,75 @@ json.dumps({"cols": cols, "rows": rows, "n": len(_graphs["base"]), "total": len(
   return { cols, total: all.length, n: null,
            rows: all.slice(0, MAX_ROWS).map(b =>
              Object.fromEntries(cols.map(c => [c, b[c] ? b[c].value : null]))) };
+}
+
+/* ---- controls ---------------------------------------------------------- */
+
+/* A control edits one number in the query rather than templating the query
+   text. The query keeps a `VALUES ?year { -4500 }` line, so it stays valid
+   SPARQL: the .rq file runs unchanged outside the browser, and the build can
+   execute it to check that it returns rows. The slider rewrites what is
+   between the braces and nothing else. */
+const valuesRe = v => new RegExp('(VALUES\\s+\\?' + v + '\\s*\\{)([^}]*)(\\})');
+
+export function readControl(src, v) {
+  const m = valuesRe(v).exec(src);
+  return m ? m[2].trim() : null;
+}
+
+export function applyControls(src, controls) {
+  let out = src;
+  for (const c of controls) {
+    const re = valuesRe(c.var);
+    if (!re.test(out)) continue;   // the reader edited the clause away
+    out = out.replace(re, `$1 ${c.value} $3`);
+  }
+  return out;
+}
+
+/* ---- downloads --------------------------------------------------------- */
+
+function download(name, mime, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+export function toCSV(data) {
+  const cell = v => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  return [data.cols.join(','),
+          ...data.rows.map(r => data.cols.map(c => cell(r[c])).join(','))].join('\n') + '\n';
+}
+
+export function toGeoJSON(data) {
+  const geoCol = findGeoColumn(data);
+  if (!geoCol) return null;
+  return JSON.stringify({
+    type: 'FeatureCollection',
+    features: data.rows.map(r => {
+      const p = parsePoint(r[geoCol]);
+      if (!p) return null;
+      const props = Object.fromEntries(
+        data.cols.filter(c => c !== geoCol).map(c => [c, r[c]]));
+      return { type: 'Feature', properties: props,
+               geometry: { type: 'Point', coordinates: [p.lon, p.lat] } };
+    }).filter(Boolean)
+  }, null, 1);
+}
+
+export function offerDownloads(el, data, id) {
+  const geo = toGeoJSON(data);
+  el.innerHTML = '<button class="dl" data-fmt="csv">Download CSV</button>' +
+    (geo ? ' <button class="dl" data-fmt="geojson">Download GeoJSON</button>' : '');
+  el.querySelectorAll('button.dl').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.fmt === 'csv') download(id + '.csv', 'text/csv', toCSV(data));
+    else download(id + '.geojson', 'application/geo+json', geo);
+  }));
 }
 
 /* ---- table ------------------------------------------------------------- */
@@ -208,7 +285,12 @@ export function renderMap(el, data, cols) {
     [...used.entries()].map(([k, c]) =>
       `<span class="key"><span class="swatch" style="background:${c}"></span>${esc(k)}</span>`).join('') +
     `<span class="note">${bounds.length} point${bounds.length === 1 ? '' : 's'}` +
-    (dropped ? `, ${dropped} row${dropped === 1 ? '' : 's'} without coordinates` : '') + '.</span>';
+    (dropped ? `, ${dropped} row${dropped === 1 ? '' : 's'} without coordinates` : '') +
+    /* Say when the map is showing less than the query found. A map that
+       quietly drops rows is worse than no map. */
+    (data.total > data.rows.length
+      ? `, of ${data.total} rows found — the first ${data.rows.length} are drawn`
+      : '') + '.</span>';
   setTimeout(() => map.invalidateSize(), 60);
 }
 
@@ -252,7 +334,13 @@ export function renderScatter(el, data, cols) {
   let body = `<line x1="${m}" y1="${h - m}" x2="${w - 8}" y2="${h - m}" class="axis"/>` +
              `<line x1="${m}" y1="10" x2="${m}" y2="${h - m}" class="axis"/>` +
              `<text x="${w - 8}" y="${h - m + 26}" text-anchor="end" class="lab">${esc(xs)}</text>` +
-             `<text x="4" y="18" class="lab">${esc(ys)}</text>`;
+             `<text x="4" y="18" class="lab">${esc(ys)}</text>` +
+             /* Without a scale the points say only "these are apart", not how
+                far, and the reader has to guess from the table. */
+             `<text x="${m}" y="${h - m + 16}" class="lab">${esc(xr[0])}</text>` +
+             `<text x="${w - 14}" y="${h - m + 16}" text-anchor="end" class="lab">${esc(xr[1])}</text>` +
+             `<text x="${m - 6}" y="${h - m}" text-anchor="end" class="lab">${esc(yr[0])}</text>` +
+             `<text x="${m - 6}" y="20" text-anchor="end" class="lab">${esc(yr[1])}</text>`;
   for (const p of pts) {
     body += `<circle cx="${sx(p.x).toFixed(1)}" cy="${sy(p.y).toFixed(1)}" r="4" class="dotm">` +
             `<title>${esc(p.l ?? '')} (${esc(p.x)}, ${esc(p.y)})</title></circle>`;

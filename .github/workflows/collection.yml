@@ -29,6 +29,11 @@ on:
         type: string
         default: v1
 
+# A called workflow can never hold more than its caller granted, so these are
+# a ceiling and not a grant: the calling repository has to declare the same
+# three itself. Without that, GitHub refuses the run before it starts, with
+# "requesting 'id-token: write', but is only allowed 'id-token: none'".
+# See example/workflow-build.yml.
 permissions:
   contents: write
   pages: write

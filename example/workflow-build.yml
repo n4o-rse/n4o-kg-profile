@@ -9,6 +9,16 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Required. A reusable workflow cannot grant itself more than the caller has,
+# and most repositories default to a read-only token, so leaving this out fails
+# the run before it starts: "requesting 'id-token: write', but is only allowed
+# 'id-token: none'". contents:write is for committing dist/ and docs/ back;
+# pages and id-token are what actions/deploy-pages needs.
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
 jobs:
   collection:
     uses: n4o-rse/n4o-kg-profile/.github/workflows/collection.yml@v1
